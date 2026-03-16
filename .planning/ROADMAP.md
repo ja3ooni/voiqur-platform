@@ -33,12 +33,13 @@ The platform is ~55% complete with a working skeleton (billing, analytics, compl
   3. `POST /auth/register` stores a bcrypt-hashed user row in the `users` table
   4. `POST /auth/login` returns a signed JWT that `/auth/me` (or any protected route) accepts
   5. All required environment variables are documented in `.env.example` with descriptions
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Environment config and `.env.example`
-- [ ] 01-02: asyncpg + aioredis connection pools and health endpoint
-- [ ] 01-03: Alembic schema + JWT auth endpoints (register, login, verify_token)
+- [ ] 01-00-PLAN.md — Install pytest/pytest-asyncio/httpx, create pytest.ini + test stubs (Wave 0)
+- [ ] 01-01-PLAN.md — load_dotenv() wired into main.py, .env.example and local .env created (FOUND-01, FOUND-02)
+- [ ] 01-02-PLAN.md — asyncpg + aioredis pools on app.state, real health probes (FOUND-03, FOUND-04, FOUND-09)
+- [ ] 01-03-PLAN.md — DB schema init, auth router (register/login/me), get_current_user real DB lookup (FOUND-05, FOUND-06, FOUND-07, FOUND-08)
 
 ### Phase 2: STT
 **Goal**: Audio input produces real transcriptions via Deepgram (with Voxtral fallback) wired into the processing pipeline
@@ -197,7 +198,7 @@ Note: Phase 6 depends only on Phase 1 (billing/integrations are independent of t
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 0/4 | Not started | - |
 | 2. STT | 0/3 | Not started | - |
 | 3. LLM | 0/3 | Not started | - |
 | 4. TTS | 0/3 | Not started | - |
