@@ -6,8 +6,14 @@ Starts the EUVoice AI Platform API server.
 
 import uvicorn
 import logging
+from dotenv import load_dotenv
 from .app import create_app
 from .config import APIConfig
+
+# Load .env before any config instantiation.
+# This must happen at module level so that `uvicorn src.api.main:app` picks up
+# .env values before APIConfig() is called to build the module-level `app`.
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -17,9 +23,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Module-level ASGI app for `uvicorn src.api.main:app --reload`
+app = create_app(APIConfig())
+
 
 def main():
     """Main entry point for the API server."""
+    # load_dotenv() is already called at module level above, but calling it
+    # again here is safe (idempotent) and makes the intent explicit when
+    # main() is invoked directly.
+    load_dotenv()
     config = APIConfig()
     app = create_app(config)
     

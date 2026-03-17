@@ -123,7 +123,7 @@ class WebhookRegistration(BaseModel):
     
     # Endpoint configuration
     url: HttpUrl = Field(description="Webhook endpoint URL")
-    method: str = Field(default="POST", regex="^(POST|PUT|PATCH)$", description="HTTP method")
+    method: str = Field(default="POST", pattern="^(POST|PUT|PATCH)$", description="HTTP method")
     
     # Event configuration
     filters: WebhookFilter = Field(description="Event filtering configuration")
@@ -254,7 +254,7 @@ class WebhookRegistrationRequest(BaseModel):
     name: str = Field(description="Webhook name")
     description: Optional[str] = Field(default=None, description="Webhook description")
     url: HttpUrl = Field(description="Webhook endpoint URL")
-    method: str = Field(default="POST", regex="^(POST|PUT|PATCH)$")
+    method: str = Field(default="POST", pattern="^(POST|PUT|PATCH)$")
     
     # Event configuration
     event_types: List[WebhookEventType] = Field(description="Event types to subscribe to")
