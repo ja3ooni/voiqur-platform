@@ -1,0 +1,344 @@
+{
+  "timestamp": "2025-11-06T19:26:01.941225",
+  "overall_success": false,
+  "conversation_tests": [
+    {
+      "scenario": "Customer Support Conversation",
+      "success": true,
+      "turns": 4,
+      "avg_processing_time_ms": 367.40636825561523,
+      "conversation_length": 4
+    },
+    {
+      "scenario": "Information Request Conversation",
+      "success": true,
+      "turns": 3,
+      "avg_processing_time_ms": 362.2580369313558,
+      "conversation_length": 3
+    },
+    {
+      "scenario": "Technical Support Conversation",
+      "success": true,
+      "turns": 4,
+      "avg_processing_time_ms": 364.6307587623596,
+      "conversation_length": 4
+    }
+  ],
+  "load_tests": {
+    "performance_results": [
+      {
+        "batch": 1,
+        "concurrent_requests": 5,
+        "successful": 5,
+        "failed": 0,
+        "batch_duration_ms": 367.0168999960879,
+        "avg_processing_time_ms": 363.3753776550293,
+        "min_processing_time_ms": 362.9651069641113,
+        "max_processing_time_ms": 363.6279106140137,
+        "throughput_rps": 13.623350859465317
+      },
+      {
+        "batch": 2,
+        "concurrent_requests": 5,
+        "successful": 5,
+        "failed": 0,
+        "batch_duration_ms": 373.68659999629017,
+        "avg_processing_time_ms": 370.8131790161133,
+        "min_processing_time_ms": 370.76425552368164,
+        "max_processing_time_ms": 370.85986137390137,
+        "throughput_rps": 13.380196132399819
+      },
+      {
+        "batch": 3,
+        "concurrent_requests": 5,
+        "successful": 5,
+        "failed": 0,
+        "batch_duration_ms": 370.3306000097655,
+        "avg_processing_time_ms": 363.084077835083,
+        "min_processing_time_ms": 360.87751388549805,
+        "max_processing_time_ms": 364.9578094482422,
+        "throughput_rps": 13.501449785321958
+      },
+      {
+        "batch": 4,
+        "concurrent_requests": 5,
+        "successful": 5,
+        "failed": 0,
+        "batch_duration_ms": 388.3672999945702,
+        "avg_processing_time_ms": 381.8249225616455,
+        "min_processing_time_ms": 381.3948631286621,
+        "max_processing_time_ms": 382.07530975341797,
+        "throughput_rps": 12.874410384370428
+      }
+    ],
+    "orchestration_status": {
+      "orchestration_active": true,
+      "total_agents": 14,
+      "agent_status_counts": {
+        "healthy": 14,
+        "degraded": 0,
+        "unhealthy": 0,
+        "offline": 0,
+        "starting": 0,
+        "stopping": 0
+      },
+      "agent_type_health": {
+        "stt": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        },
+        "llm": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        },
+        "tts": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        },
+        "emotion": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        },
+        "accent": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        },
+        "lip_sync": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        },
+        "arabic": {
+          "total": 2,
+          "healthy": 2,
+          "health_percentage": 100.0
+        }
+      },
+      "load_balancing_strategy": "health_based",
+      "auto_failover_enabled": true,
+      "last_health_check": "2025-11-06T19:25:53.949574"
+    },
+    "success_rate": 100.0
+  },
+  "failure_tests": [
+    {
+      "scenario": "Empty Audio Input",
+      "expected_failure": true,
+      "actual_failure": true,
+      "test_passed": true,
+      "processing_time_ms": 0.8695125579833984,
+      "error_message": "No text available for processing",
+      "graceful_degradation": true
+    },
+    {
+      "scenario": "Invalid Language Code",
+      "expected_failure": false,
+      "actual_failure": false,
+      "test_passed": true,
+      "processing_time_ms": 358.7384223937988,
+      "error_message": null,
+      "graceful_degradation": true
+    },
+    {
+      "scenario": "Extremely Long Text",
+      "expected_failure": false,
+      "actual_failure": false,
+      "test_passed": true,
+      "processing_time_ms": 370.12553215026855,
+      "error_message": null,
+      "graceful_degradation": true
+    },
+    {
+      "scenario": "Special Characters",
+      "expected_failure": false,
+      "actual_failure": false,
+      "test_passed": true,
+      "processing_time_ms": 368.84212493896484,
+      "error_message": null,
+      "graceful_degradation": true
+    },
+    {
+      "scenario": "Empty Text Input",
+      "expected_failure": true,
+      "actual_failure": true,
+      "test_passed": true,
+      "processing_time_ms": 0.5211830139160156,
+      "error_message": "No text available for processing",
+      "graceful_degradation": true
+    }
+  ],
+  "e2e_tests": {
+    "functional_results": {
+      "suite_id": "functional_basic",
+      "suite_name": "Basic Functional Tests",
+      "status": "failed",
+      "execution_time_seconds": 2.345605,
+      "total_scenarios": 5,
+      "results_count": 5,
+      "status_breakdown": {
+        "pending": 0,
+        "running": 0,
+        "passed": 0,
+        "failed": 5,
+        "skipped": 0,
+        "timeout": 0
+      },
+      "performance_stats": {
+        "avg_execution_time_ms": 469.0618,
+        "min_execution_time_ms": 464.8,
+        "max_execution_time_ms": 475.23900000000003,
+        "median_execution_time_ms": 467.082
+      },
+      "success_rate": 0.0
+    },
+    "performance_results": {
+      "suite_id": "performance_load",
+      "suite_name": "Performance Load Tests",
+      "status": "failed",
+      "execution_time_seconds": 0.481122,
+      "total_scenarios": 10,
+      "results_count": 10,
+      "status_breakdown": {
+        "pending": 0,
+        "running": 0,
+        "passed": 0,
+        "failed": 10,
+        "skipped": 0,
+        "timeout": 0
+      },
+      "performance_stats": {
+        "avg_execution_time_ms": 474.83230000000003,
+        "min_execution_time_ms": 473.10600000000005,
+        "max_execution_time_ms": 476.158,
+        "median_execution_time_ms": 474.7345
+      },
+      "success_rate": 0.0
+    }
+  },
+  "features_tests": {
+    "test_results": [
+      {
+        "test_case": "Emotion Detection Only",
+        "success": true,
+        "features_tested": 1,
+        "features_successful": 1,
+        "feature_details": {
+          "emotion_detection": {
+            "success": true,
+            "processing_time_ms": 64.86080000468064,
+            "confidence": 0.7,
+            "data_keys": [
+              "primary_emotion",
+              "emotion_scores",
+              "valence",
+              "arousal"
+            ]
+          }
+        }
+      },
+      {
+        "test_case": "Accent Adaptation Only",
+        "success": true,
+        "features_tested": 1,
+        "features_successful": 1,
+        "feature_details": {
+          "accent_adaptation": {
+            "success": true,
+            "processing_time_ms": 154.72989999398123,
+            "confidence": 0.825,
+            "data_keys": [
+              "detected_accent",
+              "confidence_scores",
+              "accent_features",
+              "adapted_text",
+              "target_accent",
+              "adaptation_params",
+              "phonetic_adjustments"
+            ]
+          }
+        }
+      },
+      {
+        "test_case": "Arabic Support",
+        "success": true,
+        "features_tested": 1,
+        "features_successful": 1,
+        "feature_details": {
+          "arabic_support": {
+            "success": true,
+            "processing_time_ms": 108.38930000318214,
+            "confidence": 0.9,
+            "data_keys": [
+              "processed_text",
+              "text_analysis",
+              "dialect",
+              "pronunciation_guide",
+              "phonetic_transcription"
+            ]
+          }
+        }
+      },
+      {
+        "test_case": "Multiple Features",
+        "success": true,
+        "features_tested": 2,
+        "features_successful": 2,
+        "feature_details": {
+          "emotion_detection": {
+            "success": true,
+            "processing_time_ms": 61.191600005258806,
+            "confidence": 0.8,
+            "data_keys": [
+              "primary_emotion",
+              "emotion_scores",
+              "valence",
+              "arousal"
+            ]
+          },
+          "accent_adaptation": {
+            "success": true,
+            "processing_time_ms": 168.7007000000449,
+            "confidence": 0.825,
+            "data_keys": [
+              "detected_accent",
+              "confidence_scores",
+              "accent_features",
+              "adapted_text",
+              "target_accent",
+              "adaptation_params",
+              "phonetic_adjustments"
+            ]
+          }
+        }
+      }
+    ],
+    "performance_metrics": {
+      "emotion_detection": {
+        "count": 2,
+        "avg_ms": 63.02620000496972,
+        "min_ms": 61.191600005258806,
+        "max_ms": 64.86080000468064,
+        "total_ms": 126.05240000993945
+      },
+      "accent_adaptation": {
+        "count": 2,
+        "avg_ms": 161.71529999701306,
+        "min_ms": 154.72989999398123,
+        "max_ms": 168.7007000000449,
+        "total_ms": 323.4305999940261
+      },
+      "arabic_support": {
+        "count": 1,
+        "avg_ms": 108.38930000318214,
+        "min_ms": 108.38930000318214,
+        "max_ms": 108.38930000318214,
+        "total_ms": 108.38930000318214
+      }
+    }
+  }
+}

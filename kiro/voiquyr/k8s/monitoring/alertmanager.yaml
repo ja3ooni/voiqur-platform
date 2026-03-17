@@ -1,0 +1,274 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: euvoice
+  labels:
+    app: alertmanager
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'smtp.eu-central-1.amazonaws.com:587'
+      smtp_from: 'alerts@euvoice.ai'
+      smtp_auth_username: 'alerts@euvoice.ai'
+      smtp_auth_password_file: '/etc/secrets/smtp_password'
+
+    # Inhibition rules for reducing alert noise
+    inhibit_rules:
+    - source_match:
+        severity: 'critical'
+      target_match:
+        severity: 'warning'
+      equal: ['alertname', 'cluster', 'service']
+
+    # Route configuration
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'web.hook'
+      routes:
+      # Critical compliance alerts
+      - match:
+          compliance: gdpr
+          severity: critical
+        receiver: 'compliance-team'
+        group_wait: 0s
+        repeat_interval: 15m
+      
+      # High priority alerts
+      - match:
+          severity: critical
+        receiver: 'ops-team'
+        group_wait: 0s
+        repeat_interval: 30m
+      
+      # Warning alerts
+      - match:
+          severity: warning
+        receiver: 'ops-team'
+        group_wait: 30s
+        repeat_interval: 4h
+
+    # Receiver configurations
+    receivers:
+    - name: 'web.hook'
+      webhook_configs:
+      - url: 'http://euvoice-platform-api-gateway:8080/webhooks/alerts'
+        send_resolved: true
+        http_config:
+          bearer_token_file: '/etc/secrets/webhook_token'
+        title: 'EUVoice Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Compliance: {{ .Labels.compliance }}
+          Region: {{ .Labels.region }}
+          {{ end }}
+
+    - name: 'compliance-team'
+      email_configs:
+      - to: 'compliance@euvoice.ai'
+        subject: 'URGENT: GDPR Compliance Alert - {{ .GroupLabels.alertname }}'
+        body: |
+          GDPR Compliance Alert Triggered
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          
+          This alert indicates a potential GDPR compliance issue that requires immediate attention.
+          Please review the system logs and take appropriate action.
+          
+          Dashboard: https://dashboard.euvoice.ai/grafana/d/compliance
+          {{ end }}
+      
+      slack_configs:
+      - api_url_file: '/etc/secrets/slack_webhook'
+        channel: '#compliance-alerts'
+        title: 'GDPR Compliance Alert'
+        text: |
+          {{ range .Alerts }}
+          :rotating_light: *GDPR Compliance Alert*
+          
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Region:* {{ .Labels.region }}
+          
+          <https://dashboard.euvoice.ai/grafana/d/compliance|View Dashboard>
+          {{ end }}
+
+    - name: 'ops-team'
+      email_configs:
+      - to: 'ops@euvoice.ai'
+        subject: 'EUVoice Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          EUVoice Platform Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.job }}
+          Time: {{ .StartsAt }}
+          
+          Dashboard: https://dashboard.euvoice.ai/grafana/d/overview
+          Runbook: https://docs.euvoice.ai/runbooks/{{ .Labels.alertname }}
+          {{ end }}
+      
+      slack_configs:
+      - api_url_file: '/etc/secrets/slack_webhook'
+        channel: '#ops-alerts'
+        title: 'EUVoice Platform Alert'
+        text: |
+          {{ range .Alerts }}
+          {{ if eq .Labels.severity "critical" }}:fire:{{ else }}:warning:{{ end }} *{{ .Annotations.summary }}*
+          
+          *Description:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          *Service:* {{ .Labels.job }}
+          
+          <https://dashboard.euvoice.ai/grafana/d/overview|View Dashboard>
+          {{ end }}
+
+      pagerduty_configs:
+      - routing_key_file: '/etc/secrets/pagerduty_key'
+        description: '{{ .GroupLabels.alertname }}: {{ .Annotations.summary }}'
+        severity: '{{ .Labels.severity }}'
+        details:
+          compliance: '{{ .Labels.compliance }}'
+          region: '{{ .Labels.region }}'
+          service: '{{ .Labels.job }}'
+          description: '{{ .Annotations.description }}'
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: euvoice
+  labels:
+    app: alertmanager
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.26.0
+        args:
+          - '--config.file=/etc/alertmanager/alertmanager.yml'
+          - '--storage.path=/alertmanager'
+          - '--web.external-url=https://dashboard.euvoice.ai/alertmanager/'
+          - '--web.route-prefix=/'
+          - '--cluster.listen-address=0.0.0.0:9094'
+          - '--log.level=info'
+        ports:
+        - containerPort: 9093
+          name: web
+        - containerPort: 9094
+          name: cluster
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        volumeMounts:
+        - name: alertmanager-config
+          mountPath: /etc/alertmanager
+          readOnly: true
+        - name: alertmanager-secrets
+          mountPath: /etc/secrets
+          readOnly: true
+        - name: alertmanager-storage
+          mountPath: /alertmanager
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9093
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9093
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+      volumes:
+      - name: alertmanager-config
+        configMap:
+          name: alertmanager-config
+      - name: alertmanager-secrets
+        secret:
+          secretName: alertmanager-secrets
+      - name: alertmanager-storage
+        persistentVolumeClaim:
+          claimName: alertmanager-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: euvoice
+  labels:
+    app: alertmanager
+spec:
+  selector:
+    app: alertmanager
+  type: ClusterIP
+  ports:
+  - port: 9093
+    targetPort: 9093
+    name: web
+  - port: 9094
+    targetPort: 9094
+    name: cluster
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-storage
+  namespace: euvoice
+  labels:
+    app: alertmanager
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-encrypted
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-secrets
+  namespace: euvoice
+  labels:
+    app: alertmanager
+type: Opaque
+data:
+  smtp_password: {{ "changeme" | b64enc }}
+  webhook_token: {{ randAlphaNum 32 | b64enc }}
+  slack_webhook: {{ "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK" | b64enc }}
+  pagerduty_key: {{ "your-pagerduty-integration-key" | b64enc }}

@@ -1,0 +1,7 @@
+{
+  "name": "Voiquyr Command Center",
+  "description": "Operational dashboard and low-latency simulator for the Voiquyr Voice AI Edge Orchestrator.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

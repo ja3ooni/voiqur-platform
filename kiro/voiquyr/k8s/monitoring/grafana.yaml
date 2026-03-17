@@ -1,0 +1,468 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: euvoice
+  labels:
+    app: grafana
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  grafana.ini: |
+    [analytics]
+    check_for_updates = false
+    reporting_enabled = false
+
+    [security]
+    admin_user = admin
+    admin_password = $__file{/etc/secrets/admin_password}
+    disable_gravatar = true
+    cookie_secure = true
+    cookie_samesite = strict
+    strict_transport_security = true
+
+    [server]
+    protocol = http
+    http_port = 3000
+    domain = dashboard.euvoice.ai
+    root_url = https://dashboard.euvoice.ai/grafana/
+    serve_from_sub_path = true
+
+    [database]
+    type = postgres
+    host = postgres:5432
+    name = grafana
+    user = grafana
+    password = $__file{/etc/secrets/db_password}
+    ssl_mode = require
+
+    [session]
+    provider = postgres
+    provider_config = user=grafana password=$__file{/etc/secrets/db_password} host=postgres port=5432 dbname=grafana sslmode=require
+
+    [dataproxy]
+    timeout = 30
+    keep_cookies =
+
+    [snapshots]
+    external_enabled = false
+
+    [users]
+    allow_sign_up = false
+    allow_org_create = false
+    auto_assign_org = true
+    auto_assign_org_role = Viewer
+    default_theme = dark
+
+    [auth]
+    disable_login_form = false
+    disable_signout_menu = false
+
+    [auth.anonymous]
+    enabled = false
+
+    [log]
+    mode = console
+    level = info
+
+    [log.console]
+    level = info
+    format = json
+
+    [alerting]
+    enabled = true
+    execute_alerts = true
+
+    [metrics]
+    enabled = true
+    interval_seconds = 10
+
+    [tracing.jaeger]
+    address = jaeger:14268
+    always_included_tag = compliance:gdpr
+    always_included_tag = region:eu-central-1
+
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus:9090
+      isDefault: true
+      editable: false
+      jsonData:
+        timeInterval: "15s"
+        queryTimeout: "60s"
+        httpMethod: "POST"
+        customQueryParameters: "compliance=gdpr&region=eu"
+    - name: Jaeger
+      type: jaeger
+      access: proxy
+      url: http://jaeger:16686
+      editable: false
+      jsonData:
+        tracesToLogs:
+          datasourceUid: "loki"
+          tags: ["job", "instance", "pod", "namespace"]
+
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'euvoice-dashboards'
+      orgId: 1
+      folder: 'EUVoice AI'
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: euvoice
+  labels:
+    app: grafana
+data:
+  euvoice-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "EUVoice AI Platform Overview",
+        "tags": ["euvoice", "ai", "compliance"],
+        "timezone": "Europe/Berlin",
+        "panels": [
+          {
+            "id": 1,
+            "title": "System Health",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=~\"euvoice-.*\"}",
+                "legendFormat": "{{job}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Voice Processing Latency",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(voice_processing_latency_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.50, rate(voice_processing_latency_seconds_bucket[5m]))",
+                "legendFormat": "50th percentile"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "Latency (seconds)",
+                "max": 0.2,
+                "min": 0
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[5m])",
+                "legendFormat": "{{job}} - {{method}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m])",
+                "legendFormat": "{{job}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "Error Rate",
+                "max": 0.1,
+                "min": 0
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "id": 5,
+            "title": "GPU Utilization",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "nvidia_gpu_utilization_gpu",
+                "legendFormat": "GPU {{gpu}} - {{pod}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+
+  euvoice-compliance.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "EUVoice AI Compliance Dashboard",
+        "tags": ["euvoice", "gdpr", "ai-act", "compliance"],
+        "timezone": "Europe/Berlin",
+        "panels": [
+          {
+            "id": 1,
+            "title": "GDPR Compliance Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "gdpr_compliance_status",
+                "legendFormat": "GDPR Status"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Data Residency Violations",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "increase(data_residency_violations_total[24h])",
+                "legendFormat": "Violations (24h)"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "red", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "AI Act Compliance",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "ai_act_compliance_status",
+                "legendFormat": "AI Act Status"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Data Processing Requests",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(gdpr_data_access_requests_total[5m])",
+                "legendFormat": "Access Requests"
+              },
+              {
+                "expr": "rate(gdpr_data_deletion_requests_total[5m])",
+                "legendFormat": "Deletion Requests"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 5,
+            "title": "Audit Log Volume",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(audit_log_entries_total[5m])",
+                "legendFormat": "{{level}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "id": 6,
+            "title": "Encryption Status",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "encryption_status",
+                "legendFormat": "{{service}} - {{type}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ],
+        "time": {
+          "from": "now-24h",
+          "to": "now"
+        },
+        "refresh": "1m"
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: euvoice
+  labels:
+    app: grafana
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        fsGroup: 472
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.1.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD__FILE
+          value: /etc/secrets/admin_password
+        - name: GF_DATABASE_PASSWORD__FILE
+          value: /etc/secrets/db_password
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: grafana-config
+          mountPath: /etc/grafana/grafana.ini
+          subPath: grafana.ini
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+          subPath: datasources.yaml
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+          subPath: dashboards.yaml
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+        - name: grafana-secrets
+          mountPath: /etc/secrets
+          readOnly: true
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 60
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+      volumes:
+      - name: grafana-config
+        configMap:
+          name: grafana-config
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+      - name: grafana-secrets
+        secret:
+          secretName: euvoice-platform-grafana
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: grafana-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: euvoice
+  labels:
+    app: grafana
+spec:
+  selector:
+    app: grafana
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: euvoice
+  labels:
+    app: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-encrypted
+  resources:
+    requests:
+      storage: 10Gi

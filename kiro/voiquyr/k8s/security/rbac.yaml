@@ -1,0 +1,331 @@
+# Role-Based Access Control (RBAC) for EUVoice AI Platform
+# Implements principle of least privilege and EU compliance requirements
+
+# Service Accounts for each component
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: euvoice-framework
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: multi-agent-framework
+    compliance.euvoice.ai/gdpr: "enabled"
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: euvoice-stt-agent
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: stt-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: euvoice-llm-agent
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: llm-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: euvoice-tts-agent
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: tts-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: euvoice-api-gateway
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: api-gateway
+    compliance.euvoice.ai/gdpr: "enabled"
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: euvoice-frontend
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: frontend
+    compliance.euvoice.ai/gdpr: "enabled"
+automountServiceAccountToken: false  # Frontend doesn't need K8s API access
+---
+# Roles for different access levels
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: euvoice-framework-role
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+# Framework needs to manage other services
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+# Metrics and monitoring
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list"]
+# Events for audit logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: euvoice-agent-role
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+# Agents need minimal access
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["euvoice-platform-secrets"]
+# Metrics access
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"]
+  verbs: ["get"]
+# Events for audit logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: euvoice-api-gateway-role
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+# API Gateway needs service discovery
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["euvoice-platform-secrets", "euvoice-tls"]
+# Health checks
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+# Events for audit logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+# Role Bindings
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: euvoice-framework-binding
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: euvoice-framework
+  namespace: euvoice
+roleRef:
+  kind: Role
+  name: euvoice-framework-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: euvoice-stt-agent-binding
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: euvoice-stt-agent
+  namespace: euvoice
+roleRef:
+  kind: Role
+  name: euvoice-agent-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: euvoice-llm-agent-binding
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: euvoice-llm-agent
+  namespace: euvoice
+roleRef:
+  kind: Role
+  name: euvoice-agent-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: euvoice-tts-agent-binding
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: euvoice-tts-agent
+  namespace: euvoice
+roleRef:
+  kind: Role
+  name: euvoice-agent-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: euvoice-api-gateway-binding
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: euvoice-api-gateway
+  namespace: euvoice
+roleRef:
+  kind: Role
+  name: euvoice-api-gateway-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Cluster-level roles for monitoring and compliance
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: euvoice-compliance-monitor
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+# Read-only access to cluster resources for compliance monitoring
+- apiGroups: [""]
+  resources: ["nodes", "namespaces", "pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies", "ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["podsecuritypolicies", "poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+# Metrics access for compliance reporting
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["nodes", "pods"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: euvoice-compliance-monitor-binding
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: euvoice-framework
+  namespace: euvoice
+roleRef:
+  kind: ClusterRole
+  name: euvoice-compliance-monitor
+  apiGroup: rbac.authorization.k8s.io
+---
+# Security Context Constraints (if using OpenShift)
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: euvoice-scc
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+- ALL
+allowedFlexVolumes: []
+fsGroup:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+  - max: 65535
+readOnlyRootFilesystem: true
+runAsUser:
+  type: MustRunAsNonRoot
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+  - max: 65535
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- persistentVolumeClaim
+- projected
+- secret
+users:
+- system:serviceaccount:euvoice:euvoice-framework
+- system:serviceaccount:euvoice:euvoice-stt-agent
+- system:serviceaccount:euvoice:euvoice-llm-agent
+- system:serviceaccount:euvoice:euvoice-tts-agent
+- system:serviceaccount:euvoice:euvoice-api-gateway
+- system:serviceaccount:euvoice:euvoice-frontend

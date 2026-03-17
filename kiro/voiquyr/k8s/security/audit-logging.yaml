@@ -1,0 +1,456 @@
+# Audit logging configuration for EUVoice AI Platform
+# Implements comprehensive audit trails for GDPR compliance
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: audit-policy
+  namespace: kube-system
+  labels:
+    app: kubernetes-audit
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  audit-policy.yaml: |
+    apiVersion: audit.k8s.io/v1
+    kind: Policy
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+      - RequestReceived
+    rules:
+    # Log pod changes at RequestResponse level for GDPR compliance
+    - level: RequestResponse
+      resources:
+      - group: ""
+        resources: ["pods", "services", "secrets", "configmaps"]
+      namespaces: ["euvoice"]
+      
+    # Log authentication and authorization events
+    - level: Metadata
+      resources:
+      - group: "rbac.authorization.k8s.io"
+        resources: ["*"]
+      - group: "authentication.k8s.io"
+        resources: ["*"]
+      
+    # Log all security-related events
+    - level: RequestResponse
+      resources:
+      - group: "policy"
+        resources: ["podsecuritypolicies"]
+      - group: "networking.k8s.io"
+        resources: ["networkpolicies"]
+      - group: "security.istio.io"
+        resources: ["*"]
+        
+    # Log data access events for GDPR compliance
+    - level: Request
+      resources:
+      - group: ""
+        resources: ["persistentvolumes", "persistentvolumeclaims"]
+      - group: "storage.k8s.io"
+        resources: ["*"]
+      namespaces: ["euvoice"]
+      
+    # Log all events in euvoice namespace at metadata level
+    - level: Metadata
+      namespaces: ["euvoice"]
+      
+    # Log admission controller events
+    - level: Request
+      users: ["system:serviceaccount:kube-system:*"]
+      verbs: ["create", "update", "patch", "delete"]
+      
+    # Don't log requests to certain non-resource URLs
+    - level: None
+      nonResourceURLs:
+      - /healthz*
+      - /version
+      - /swagger*
+      - /openapi*
+      
+    # Don't log watch requests by the "system:kube-proxy" on endpoints or services
+    - level: None
+      users: ["system:kube-proxy"]
+      verbs: ["watch"]
+      resources:
+      - group: ""
+        resources: ["endpoints", "services"]
+        
+    # Don't log authenticated requests to certain non-resource URLs
+    - level: None
+      userGroups: ["system:authenticated"]
+      nonResourceURLs:
+      - "/api*"
+      - "/version"
+      
+    # Log the request body of configmap changes in kube-system
+    - level: Request
+      resources:
+      - group: ""
+        resources: ["configmaps"]
+      namespaces: ["kube-system"]
+      
+    # Log configmap and secret changes in euvoice namespace
+    - level: RequestResponse
+      resources:
+      - group: ""
+        resources: ["secrets", "configmaps"]
+      namespaces: ["euvoice"]
+      
+    # A catch-all rule to log all other requests at the Metadata level
+    - level: Metadata
+      # Long-running requests like watches that fall under this rule will not
+      # generate an audit event in RequestReceived.
+      omitStages:
+        - RequestReceived
+---
+# Fluent Bit configuration for audit log forwarding
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-audit-config
+  namespace: kube-system
+  labels:
+    app: fluent-bit-audit
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/audit.log
+        Parser            audit
+        Tag               kubernetes.audit
+        Refresh_Interval  5
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+
+    [FILTER]
+        Name                kubernetes
+        Match               kubernetes.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kubernetes.var.log.containers.
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    [FILTER]
+        Name    modify
+        Match   kubernetes.audit
+        Add     compliance.gdpr true
+        Add     compliance.ai_act true
+        Add     data.residency EU
+        Add     region eu-central-1
+
+    [FILTER]
+        Name    grep
+        Match   kubernetes.audit
+        Regex   verb (create|update|patch|delete)
+
+    [OUTPUT]
+        Name  es
+        Match kubernetes.audit
+        Host  elasticsearch.euvoice.svc.cluster.local
+        Port  9200
+        Index audit-logs
+        Type  _doc
+        HTTP_User elastic
+        HTTP_Passwd changeme
+        tls   On
+        tls.verify Off
+        Suppress_Type_Name On
+
+    [OUTPUT]
+        Name  s3
+        Match kubernetes.audit
+        bucket euvoice-audit-logs-eu-central-1
+        region eu-central-1
+        total_file_size 50M
+        upload_timeout 10m
+        use_put_object On
+        s3_key_format /year=%Y/month=%m/day=%d/hour=%H/audit-logs-%Y%m%d%H%M%S
+        
+  parsers.conf: |
+    [PARSER]
+        Name        audit
+        Format      json
+        Time_Key    timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep   On
+---
+# DaemonSet for Fluent Bit audit log collection
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit-audit
+  namespace: kube-system
+  labels:
+    app: fluent-bit-audit
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit-audit
+  template:
+    metadata:
+      labels:
+        app: fluent-bit-audit
+    spec:
+      serviceAccountName: fluent-bit-audit
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: fluent-bit
+        image: fluent/fluent-bit:2.1.10
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 2020
+        env:
+        - name: FLUENT_CONF
+          value: "fluent-bit.conf"
+        - name: FLUENT_OPT
+          value: "--config=/fluent-bit/etc/fluent-bit.conf"
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+        - name: mnt
+          mountPath: /mnt
+          readOnly: true
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-audit-config
+      - name: mnt
+        hostPath:
+          path: /mnt
+---
+# ServiceAccount for Fluent Bit
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit-audit
+  namespace: kube-system
+  labels:
+    app: fluent-bit-audit
+    compliance.euvoice.ai/gdpr: "enabled"
+---
+# ClusterRole for Fluent Bit
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit-audit-read
+  labels:
+    app: fluent-bit-audit
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+- apiGroups: [""]
+  resources:
+  - namespaces
+  - pods
+  - pods/logs
+  verbs: ["get", "list", "watch"]
+---
+# ClusterRoleBinding for Fluent Bit
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit-audit-read
+  labels:
+    app: fluent-bit-audit
+    compliance.euvoice.ai/gdpr: "enabled"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit-audit-read
+subjects:
+- kind: ServiceAccount
+  name: fluent-bit-audit
+  namespace: kube-system
+---
+# GDPR compliance audit webhook
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gdpr-audit-webhook-config
+  namespace: euvoice
+  labels:
+    app: gdpr-audit-webhook
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  config.yaml: |
+    server:
+      port: 8443
+      tls:
+        cert_file: /etc/certs/tls.crt
+        key_file: /etc/certs/tls.key
+    
+    audit:
+      enabled: true
+      retention_days: 2555  # 7 years for GDPR compliance
+      
+    gdpr:
+      data_subject_rights:
+        - access
+        - rectification
+        - erasure
+        - portability
+        - restriction
+        - objection
+      
+      personal_data_categories:
+        - voice_recordings
+        - transcriptions
+        - user_preferences
+        - session_data
+        - ip_addresses
+        - device_identifiers
+      
+      legal_basis:
+        - consent
+        - contract
+        - legitimate_interest
+      
+    alerts:
+      webhook_url: "https://api.euvoice.ai/webhooks/gdpr-alerts"
+      
+    storage:
+      elasticsearch:
+        url: "https://elasticsearch.euvoice.svc.cluster.local:9200"
+        index: "gdpr-audit"
+        username: "elastic"
+        password_file: "/etc/secrets/elasticsearch-password"
+---
+# Deployment for GDPR audit webhook
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gdpr-audit-webhook
+  namespace: euvoice
+  labels:
+    app: gdpr-audit-webhook
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gdpr-audit-webhook
+  template:
+    metadata:
+      labels:
+        app: gdpr-audit-webhook
+    spec:
+      serviceAccountName: gdpr-audit-webhook
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+      - name: gdpr-audit-webhook
+        image: euvoice/gdpr-audit-webhook:v1.0.0
+        ports:
+        - containerPort: 8443
+          name: webhook-api
+        env:
+        - name: TLS_CERT_FILE
+          value: /etc/certs/tls.crt
+        - name: TLS_PRIVATE_KEY_FILE
+          value: /etc/certs/tls.key
+        - name: CONFIG_FILE
+          value: /etc/config/config.yaml
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        - name: secrets
+          mountPath: /etc/secrets
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: gdpr-audit-webhook-certs
+      - name: config
+        configMap:
+          name: gdpr-audit-webhook-config
+      - name: secrets
+        secret:
+          secretName: gdpr-audit-secrets
+---
+# ServiceAccount for GDPR audit webhook
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gdpr-audit-webhook
+  namespace: euvoice
+  labels:
+    app: gdpr-audit-webhook
+    compliance.euvoice.ai/gdpr: "enabled"
+---
+# Service for GDPR audit webhook
+apiVersion: v1
+kind: Service
+metadata:
+  name: gdpr-audit-webhook
+  namespace: euvoice
+  labels:
+    app: gdpr-audit-webhook
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  ports:
+  - name: webhook-api
+    port: 443
+    targetPort: 8443
+  selector:
+    app: gdpr-audit-webhook

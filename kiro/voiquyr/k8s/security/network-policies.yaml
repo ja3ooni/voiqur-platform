@@ -1,0 +1,540 @@
+# Network Policies for EUVoice AI Platform
+# Implements micro-segmentation and EU compliance network security
+
+# Default deny all ingress and egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-default-deny-all
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Allow DNS resolution for all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-allow-dns
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Multi-Agent Framework network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-framework-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: multi-agent-framework
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: multi-agent-framework
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from all agents
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: euvoice-platform
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow egress to database
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow egress to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow egress to all agents
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: euvoice-platform
+    ports:
+    - protocol: TCP
+      port: 8001
+    - protocol: TCP
+      port: 8002
+    - protocol: TCP
+      port: 8003
+    - protocol: TCP
+      port: 8004
+    - protocol: TCP
+      port: 8005
+    - protocol: TCP
+      port: 8006
+    - protocol: TCP
+      port: 8007
+---
+# STT Agent network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-stt-agent-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: stt-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: stt-agent
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from API Gateway
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8001
+    - protocol: TCP
+      port: 9001
+    - protocol: TCP
+      port: 8081
+  # Allow ingress from Framework
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8001
+    - protocol: TCP
+      port: 9001
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8001
+  egress:
+  # Allow egress to Framework
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+  # Allow egress to Accent Agent
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: accent-agent
+    ports:
+    - protocol: TCP
+      port: 8005
+  # Allow egress to Emotion Agent
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: emotion-agent
+    ports:
+    - protocol: TCP
+      port: 8004
+  # Allow HTTPS egress for model downloads (EU regions only)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# LLM Agent network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-llm-agent-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: llm-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: llm-agent
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from API Gateway
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8002
+    - protocol: TCP
+      port: 9002
+  # Allow ingress from Framework
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8002
+    - protocol: TCP
+      port: 9002
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8002
+  egress:
+  # Allow egress to Framework
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+  # Allow egress to Arabic Agent
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: arabic-agent
+    ports:
+    - protocol: TCP
+      port: 8007
+  # Allow HTTPS egress for model downloads (EU regions only)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# TTS Agent network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-tts-agent-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: tts-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: tts-agent
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from API Gateway
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8003
+    - protocol: TCP
+      port: 9003
+    - protocol: TCP
+      port: 8083
+  # Allow ingress from Framework
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8003
+    - protocol: TCP
+      port: 9003
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8003
+  egress:
+  # Allow egress to Framework
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+  # Allow egress to Emotion Agent
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: emotion-agent
+    ports:
+    - protocol: TCP
+      port: 8004
+  # Allow egress to Lip Sync Agent
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: lip-sync-agent
+    ports:
+    - protocol: TCP
+      port: 8006
+  # Allow HTTPS egress for model downloads (EU regions only)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# API Gateway network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-api-gateway-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: api-gateway
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow ingress from Istio gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow egress to all agents
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: euvoice-platform
+    ports:
+    - protocol: TCP
+      port: 8001
+    - protocol: TCP
+      port: 8002
+    - protocol: TCP
+      port: 8003
+    - protocol: TCP
+      port: 8004
+    - protocol: TCP
+      port: 8005
+    - protocol: TCP
+      port: 8006
+    - protocol: TCP
+      port: 8007
+  # Allow egress to Framework
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+---
+# Frontend network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-frontend-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: frontend
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow ingress from Istio gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  # Frontend is static, minimal egress needed
+  # Only allow egress for health checks and CDN
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# Specialized agents network policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: euvoice-specialized-agents-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/component
+      operator: In
+      values: ["emotion-agent", "accent-agent", "lip-sync-agent", "arabic-agent"]
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from core agents
+  - from:
+    - podSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/component
+          operator: In
+          values: ["stt-agent", "llm-agent", "tts-agent", "api-gateway"]
+    ports:
+    - protocol: TCP
+      port: 8004
+    - protocol: TCP
+      port: 8005
+    - protocol: TCP
+      port: 8006
+    - protocol: TCP
+      port: 8007
+  # Allow ingress from Framework
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8004
+    - protocol: TCP
+      port: 8005
+    - protocol: TCP
+      port: 8006
+    - protocol: TCP
+      port: 8007
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  # Allow egress to Framework
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: multi-agent-framework
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+  # Allow HTTPS egress for model downloads (EU regions only)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443

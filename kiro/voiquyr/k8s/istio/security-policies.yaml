@@ -1,0 +1,139 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: euvoice-peer-auth
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: euvoice-authz-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  rules:
+  # Allow ingress gateway to access all services
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+  # Allow inter-service communication within namespace
+  - from:
+    - source:
+        namespaces: ["euvoice"]
+  # Allow monitoring access
+  - from:
+    - source:
+        namespaces: ["istio-system", "monitoring"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/metrics", "/health", "/ready"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: euvoice-api-gateway-authz
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  rules:
+  # Allow authenticated API access
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        paths: ["/api/*"]
+    when:
+    - key: request.headers[authorization]
+      values: ["Bearer *"]
+  # Allow WebSocket connections
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/ws/*"]
+    when:
+    - key: request.headers[upgrade]
+      values: ["websocket"]
+  # Allow health checks without authentication
+  - to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/health", "/ready", "/metrics"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: euvoice-frontend-authz
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  rules:
+  # Allow public access to frontend
+  - to:
+    - operation:
+        methods: ["GET"]
+  # Allow health checks
+  - to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/health", "/ready"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: euvoice-jwt-auth
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+  jwtRules:
+  - issuer: "https://api.euvoice.ai"
+    jwksUri: "https://api.euvoice.ai/.well-known/jwks.json"
+    audiences:
+    - "euvoice-api"
+    forwardOriginalToken: true
+---
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: euvoice-audit-logging
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  accessLogging:
+  - providers:
+    - name: otel
+  - format:
+      text: |
+        [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%"
+        %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT%
+        %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% "%REQ(X-FORWARDED-FOR)%"
+        "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%" "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"
+        gdpr_compliant=true data_residency=EU ai_act_compliant=true
+        user_id="%REQ(X-USER-ID)%" session_id="%REQ(X-SESSION-ID)%"

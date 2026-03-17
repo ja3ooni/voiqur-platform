@@ -1,0 +1,424 @@
+# GDPR compliance configurations for EUVoice AI Platform
+# Implements data protection, anonymization, and user rights management
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gdpr-compliance-config
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  gdpr-config.yaml: |
+    gdpr:
+      enabled: true
+      data_controller:
+        name: "EUVoice AI Platform"
+        contact: "privacy@euvoice.ai"
+        dpo_contact: "dpo@euvoice.ai"
+        
+      data_retention:
+        voice_recordings: "30d"  # 30 days
+        transcriptions: "90d"    # 90 days
+        user_sessions: "24h"     # 24 hours
+        audit_logs: "7y"        # 7 years
+        analytics_data: "2y"    # 2 years
+        
+      data_anonymization:
+        enabled: true
+        methods:
+          - "k_anonymity"
+          - "differential_privacy"
+          - "pseudonymization"
+        k_value: 5
+        epsilon: 1.0  # Differential privacy parameter
+        
+      user_rights:
+        access: true
+        rectification: true
+        erasure: true
+        portability: true
+        restriction: true
+        objection: true
+        
+      consent_management:
+        enabled: true
+        granular_consent: true
+        consent_withdrawal: true
+        consent_expiry: "2y"
+        
+      data_minimization:
+        enabled: true
+        purpose_limitation: true
+        storage_limitation: true
+        
+      security_measures:
+        encryption_at_rest: true
+        encryption_in_transit: true
+        access_controls: true
+        audit_logging: true
+        
+      breach_notification:
+        enabled: true
+        authority_notification_hours: 72
+        data_subject_notification_hours: 72
+        
+      cross_border_transfers:
+        adequacy_decisions: ["EU", "EEA"]
+        safeguards: ["SCCs", "BCRs"]
+        
+      automated_decision_making:
+        enabled: false  # No automated decision making
+        profiling: false
+        
+    ai_act:
+      enabled: true
+      risk_category: "limited"  # Limited risk AI system
+      classification:
+        high_risk: false
+        prohibited: false
+        limited_risk: true
+        minimal_risk: false
+        
+      transparency_obligations:
+        user_notification: true
+        system_documentation: true
+        human_oversight: true
+        
+      quality_management:
+        enabled: true
+        risk_assessment: true
+        data_governance: true
+        accuracy_requirements: true
+        
+      conformity_assessment:
+        required: false  # Not required for limited risk
+        notified_body: false
+        
+      post_market_monitoring:
+        enabled: true
+        incident_reporting: true
+        
+    data_categories:
+      personal_data:
+        - voice_recordings
+        - transcriptions
+        - user_preferences
+        - session_metadata
+        - ip_addresses
+        - device_identifiers
+        - usage_analytics
+        
+      special_categories:
+        - biometric_data  # Voice prints
+        
+      processing_purposes:
+        - voice_recognition
+        - speech_synthesis
+        - language_processing
+        - service_improvement
+        - analytics
+        
+    legal_basis:
+      primary: "consent"
+      secondary: "legitimate_interest"
+      contract: "service_provision"
+---
+# CronJob for automated data retention and cleanup
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gdpr-data-cleanup
+  namespace: euvoice
+  labels:
+    app: gdpr-data-cleanup
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: gdpr-data-cleanup
+        spec:
+          serviceAccountName: gdpr-data-cleanup
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            fsGroup: 65534
+          containers:
+          - name: data-cleanup
+            image: euvoice/gdpr-data-cleanup:v1.0.0
+            env:
+            - name: POSTGRES_URL
+              valueFrom:
+                secretKeyRef:
+                  name: euvoice-platform-postgres
+                  key: url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: euvoice-platform-redis
+                  key: url
+            - name: S3_BUCKET
+              value: "euvoice-data-eu-central-1"
+            - name: GDPR_CONFIG
+              value: "/etc/config/gdpr-config.yaml"
+            volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+            - name: cleanup-logs
+              mountPath: /var/log/cleanup
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting GDPR data cleanup job..."
+              
+              # Clean up expired voice recordings (30 days)
+              python3 /app/cleanup_voice_recordings.py --retention-days 30
+              
+              # Clean up expired transcriptions (90 days)
+              python3 /app/cleanup_transcriptions.py --retention-days 90
+              
+              # Clean up expired session data (24 hours)
+              python3 /app/cleanup_sessions.py --retention-hours 24
+              
+              # Anonymize old analytics data (2 years)
+              python3 /app/anonymize_analytics.py --retention-days 730
+              
+              # Generate compliance report
+              python3 /app/generate_compliance_report.py
+              
+              echo "GDPR data cleanup job completed"
+            resources:
+              limits:
+                cpu: 500m
+                memory: 1Gi
+              requests:
+                cpu: 100m
+                memory: 256Mi
+          volumes:
+          - name: config
+            configMap:
+              name: gdpr-compliance-config
+          - name: cleanup-logs
+            persistentVolumeClaim:
+              claimName: gdpr-cleanup-logs
+          restartPolicy: OnFailure
+---
+# ServiceAccount for GDPR data cleanup
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gdpr-data-cleanup
+  namespace: euvoice
+  labels:
+    app: gdpr-data-cleanup
+    compliance.euvoice.ai/gdpr: "enabled"
+---
+# Role for GDPR data cleanup
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gdpr-data-cleanup
+  namespace: euvoice
+  labels:
+    app: gdpr-data-cleanup
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+- apiGroups: [""]
+  resources: ["secrets", "configmaps"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+# RoleBinding for GDPR data cleanup
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gdpr-data-cleanup
+  namespace: euvoice
+  labels:
+    app: gdpr-data-cleanup
+    compliance.euvoice.ai/gdpr: "enabled"
+subjects:
+- kind: ServiceAccount
+  name: gdpr-data-cleanup
+  namespace: euvoice
+roleRef:
+  kind: Role
+  name: gdpr-data-cleanup
+  apiGroup: rbac.authorization.k8s.io
+---
+# PVC for cleanup logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gdpr-cleanup-logs
+  namespace: euvoice
+  labels:
+    app: gdpr-data-cleanup
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-encrypted
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Deployment for GDPR data subject rights API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gdpr-rights-api
+  namespace: euvoice
+  labels:
+    app: gdpr-rights-api
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gdpr-rights-api
+  template:
+    metadata:
+      labels:
+        app: gdpr-rights-api
+    spec:
+      serviceAccountName: gdpr-rights-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+      - name: gdpr-rights-api
+        image: euvoice/gdpr-rights-api:v1.0.0
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: POSTGRES_URL
+          valueFrom:
+            secretKeyRef:
+              name: euvoice-platform-postgres
+              key: url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: euvoice-platform-redis
+              key: url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: euvoice-platform-secrets
+              key: jwt-secret
+        - name: GDPR_CONFIG
+          value: "/etc/config/gdpr-config.yaml"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      volumes:
+      - name: config
+        configMap:
+          name: gdpr-compliance-config
+---
+# ServiceAccount for GDPR rights API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gdpr-rights-api
+  namespace: euvoice
+  labels:
+    app: gdpr-rights-api
+    compliance.euvoice.ai/gdpr: "enabled"
+---
+# Service for GDPR rights API
+apiVersion: v1
+kind: Service
+metadata:
+  name: gdpr-rights-api
+  namespace: euvoice
+  labels:
+    app: gdpr-rights-api
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  selector:
+    app: gdpr-rights-api
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+# NetworkPolicy for GDPR rights API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gdpr-rights-api-policy
+  namespace: euvoice
+  labels:
+    app: gdpr-rights-api
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  podSelector:
+    matchLabels:
+      app: gdpr-rights-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from API Gateway
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow egress to database
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow egress to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53

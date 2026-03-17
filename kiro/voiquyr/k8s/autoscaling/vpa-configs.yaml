@@ -1,0 +1,124 @@
+# Vertical Pod Autoscaler configurations for EUVoice AI Platform
+# VPA helps optimize resource requests and limits automatically
+
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: euvoice-stt-agent-vpa
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: stt-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: euvoice-platform-stt-agent
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 2
+  resourcePolicy:
+    containerPolicies:
+    - containerName: stt-agent
+      minAllowed:
+        cpu: 2
+        memory: 4Gi
+        nvidia.com/gpu: 1
+      maxAllowed:
+        cpu: 16
+        memory: 32Gi
+        nvidia.com/gpu: 1
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: euvoice-llm-agent-vpa
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: llm-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: euvoice-platform-llm-agent
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 2
+  resourcePolicy:
+    containerPolicies:
+    - containerName: llm-agent
+      minAllowed:
+        cpu: 4
+        memory: 8Gi
+        nvidia.com/gpu: 1
+      maxAllowed:
+        cpu: 32
+        memory: 64Gi
+        nvidia.com/gpu: 2
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: euvoice-tts-agent-vpa
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: tts-agent
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: euvoice-platform-tts-agent
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 2
+  resourcePolicy:
+    containerPolicies:
+    - containerName: tts-agent
+      minAllowed:
+        cpu: 2
+        memory: 4Gi
+        nvidia.com/gpu: 1
+      maxAllowed:
+        cpu: 12
+        memory: 24Gi
+        nvidia.com/gpu: 1
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: euvoice-framework-vpa
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: multi-agent-framework
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: euvoice-platform-framework
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 3
+  resourcePolicy:
+    containerPolicies:
+    - containerName: framework
+      minAllowed:
+        cpu: 1
+        memory: 2Gi
+      maxAllowed:
+        cpu: 8
+        memory: 16Gi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits

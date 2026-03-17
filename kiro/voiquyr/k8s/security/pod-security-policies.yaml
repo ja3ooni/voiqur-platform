@@ -1,0 +1,210 @@
+# Pod Security Policies for EUVoice AI Platform
+# Enforces security standards and EU compliance requirements
+
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: euvoice-restricted
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/defaultProfileName: 'runtime/default'
+spec:
+  # Privilege and access controls
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  
+  # Host controls
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  hostPorts:
+  - min: 0
+    max: 0
+  
+  # Volume controls
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  
+  # File system controls
+  readOnlyRootFilesystem: true
+  
+  # User and group controls
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  runAsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  
+  # SELinux
+  seLinux:
+    rule: 'RunAsAny'
+---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: euvoice-gpu-workload
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: 'runtime/default'
+spec:
+  # GPU workloads need some additional permissions
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  allowedCapabilities:
+    - SYS_ADMIN  # Required for GPU access
+  
+  # Host controls
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  hostPorts:
+  - min: 0
+    max: 0
+  
+  # Volume controls (GPU workloads need device access)
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+    - 'hostPath'  # For GPU device access
+  
+  allowedHostPaths:
+    - pathPrefix: "/dev/nvidia"
+      readOnly: false
+    - pathPrefix: "/usr/local/nvidia"
+      readOnly: true
+  
+  # File system controls
+  readOnlyRootFilesystem: false  # GPU drivers may need write access
+  
+  # User and group controls
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  runAsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1000
+        max: 65535
+  
+  # SELinux
+  seLinux:
+    rule: 'RunAsAny'
+---
+# ClusterRole for PSP usage
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: euvoice-psp-restricted
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs: ['use']
+  resourceNames:
+  - euvoice-restricted
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: euvoice-psp-gpu-workload
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs: ['use']
+  resourceNames:
+  - euvoice-gpu-workload
+---
+# ClusterRoleBindings for PSP
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: euvoice-psp-restricted-binding
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+roleRef:
+  kind: ClusterRole
+  name: euvoice-psp-restricted
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: euvoice-framework
+  namespace: euvoice
+- kind: ServiceAccount
+  name: euvoice-api-gateway
+  namespace: euvoice
+- kind: ServiceAccount
+  name: euvoice-frontend
+  namespace: euvoice
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: euvoice-psp-gpu-workload-binding
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+roleRef:
+  kind: ClusterRole
+  name: euvoice-psp-gpu-workload
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: euvoice-stt-agent
+  namespace: euvoice
+- kind: ServiceAccount
+  name: euvoice-llm-agent
+  namespace: euvoice
+- kind: ServiceAccount
+  name: euvoice-tts-agent
+  namespace: euvoice
+- kind: ServiceAccount
+  name: euvoice-arabic-agent
+  namespace: euvoice

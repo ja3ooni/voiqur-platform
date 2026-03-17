@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build: .
+    container_name: voiquyr-edge-node
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - REGION_ID=eu-frankfurt-1
+      # API Keys (Passed via CI/CD or .env file)
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - voiquyr-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+  redis:
+    image: redis:alpine
+    container_name: voiquyr-redis-buffer
+    # Redis is used for low-latency log buffering before writing to persistent storage
+    ports:
+      - "6379:6379"
+    networks:
+      - voiquyr-net
+    volumes:
+      - redis_data:/data
+
+networks:
+  voiquyr-net:
+    driver: bridge
+
+volumes:
+  redis_data:

@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: configuration
+data:
+  # Multi-Agent Framework Configuration
+  framework.yaml: |
+    framework:
+      name: "EUVoice AI Multi-Agent Platform"
+      version: "{{ .Chart.AppVersion }}"
+      region: "{{ .Values.global.region }}"
+      compliance:
+        gdpr: {{ .Values.global.gdprCompliance }}
+        ai_act: {{ .Values.global.aiActCompliance }}
+        data_residency: "{{ .Values.global.dataResidency }}"
+      
+      messaging:
+        redis_url: "redis://redis-master:6379"
+        message_ttl: 3600
+        max_retries: 3
+      
+      storage:
+        postgres_url: "postgresql://postgres:5432/euvoice"
+        connection_pool_size: 20
+        max_overflow: 30
+      
+      agents:
+        discovery_interval: 30
+        health_check_interval: 10
+        task_timeout: 300
+        max_concurrent_tasks: 100
+      
+      security:
+        encryption_at_rest: {{ .Values.security.encryption.atRest }}
+        encryption_in_transit: {{ .Values.security.encryption.inTransit }}
+        audit_logging: {{ .Values.security.auditLogging.enabled }}
+        audit_retention_days: {{ .Values.security.auditLogging.retention | replace "y" "" | mul 365 }}
+
+  # Agent Configuration
+  agents.yaml: |
+    agents:
+      stt:
+        models:
+          primary: "{{ .Values.sttAgent.models.voxtralSmall }}"
+          fallback: "{{ .Values.sttAgent.models.voxtralMini }}"
+          backup: "{{ .Values.sttAgent.models.fallback }}"
+        performance:
+          max_audio_length: 300  # seconds
+          chunk_size: 1024
+          sample_rate: 16000
+          target_latency_ms: 100
+        languages:
+          - "en-US"
+          - "en-GB" 
+          - "de-DE"
+          - "fr-FR"
+          - "es-ES"
+          - "it-IT"
+          - "pt-PT"
+          - "nl-NL"
+          - "pl-PL"
+          - "cs-CZ"
+          - "sk-SK"
+          - "hu-HU"
+          - "ro-RO"
+          - "bg-BG"
+          - "hr-HR"
+          - "sl-SI"
+          - "et-EE"
+          - "lv-LV"
+          - "lt-LT"
+          - "fi-FI"
+          - "sv-SE"
+          - "da-DK"
+          - "el-GR"
+          - "mt-MT"
+          - "ar-SA"
+          - "ar-EG"
+          - "ar-AE"
+      
+      llm:
+        models:
+          primary: "{{ .Values.llmAgent.models.primary }}"
+          enhancement: "{{ .Values.llmAgent.models.enhancement }}"
+        context:
+          max_length: 32768
+          sliding_window: 4096
+        performance:
+          target_latency_ms: 200
+          max_tokens_per_request: 2048
+      
+      tts:
+        models:
+          primary: "{{ .Values.ttsAgent.models.primary }}"
+          alternatives: {{ .Values.ttsAgent.models.alternatives | toJson }}
+        voice_cloning:
+          min_sample_length: 6  # seconds
+          max_sample_length: 30
+          quality_threshold: 4.0  # MOS score
+        performance:
+          target_latency_ms: 100
+          streaming_chunk_size: 1024
+
+  # Monitoring Configuration
+  monitoring.yaml: |
+    monitoring:
+      prometheus:
+        enabled: {{ .Values.monitoring.prometheus.enabled }}
+        scrape_interval: "15s"
+        retention: "{{ .Values.monitoring.prometheus.retention }}"
+        
+      grafana:
+        enabled: {{ .Values.monitoring.grafana.enabled }}
+        
+      jaeger:
+        enabled: {{ .Values.monitoring.jaeger.enabled }}
+        sampling_rate: 0.1
+        
+      metrics:
+        - name: "agent_health_status"
+          type: "gauge"
+          help: "Health status of agents (1=healthy, 0=unhealthy)"
+        - name: "task_processing_duration_seconds"
+          type: "histogram"
+          help: "Time spent processing tasks"
+        - name: "message_queue_size"
+          type: "gauge"
+          help: "Number of messages in queue"
+        - name: "api_request_duration_seconds"
+          type: "histogram"
+          help: "API request processing time"
+        - name: "voice_processing_latency_seconds"
+          type: "histogram"
+          help: "End-to-end voice processing latency"
+
+  # Security Configuration
+  security.yaml: |
+    security:
+      authentication:
+        jwt_expiry: "24h"
+        refresh_token_expiry: "7d"
+        
+      authorization:
+        rbac_enabled: {{ .Values.security.rbac.enabled }}
+        
+      network:
+        allowed_origins:
+          - "https://dashboard.euvoice.ai"
+          - "https://api.euvoice.ai"
+        rate_limiting:
+          requests_per_minute: 1000
+          burst_size: 100
+          
+      compliance:
+        gdpr:
+          data_anonymization: true
+          consent_management: true
+          right_to_be_forgotten: true
+          data_portability: true
+        ai_act:
+          risk_assessment: "limited"
+          transparency_obligations: true
+          human_oversight: true
+          accuracy_requirements: true
+
+  # Logging Configuration
+  logging.yaml: |
+    logging:
+      level: "INFO"
+      format: "json"
+      
+      handlers:
+        console:
+          enabled: true
+          level: "INFO"
+        file:
+          enabled: true
+          level: "DEBUG"
+          path: "/app/logs/euvoice.log"
+          max_size: "100MB"
+          backup_count: 5
+        audit:
+          enabled: {{ .Values.security.auditLogging.enabled }}
+          level: "INFO"
+          path: "/app/logs/audit.log"
+          retention: "{{ .Values.security.auditLogging.retention }}"
+          
+      loggers:
+        "euvoice.agents": "DEBUG"
+        "euvoice.framework": "INFO"
+        "euvoice.security": "INFO"
+        "euvoice.compliance": "INFO"

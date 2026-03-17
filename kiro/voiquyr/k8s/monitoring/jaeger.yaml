@@ -1,0 +1,358 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: euvoice
+  labels:
+    app: jaeger
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  jaeger.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      pprof:
+        endpoint: 0.0.0.0:1777
+      zpages:
+        endpoint: 0.0.0.0:55679
+
+    receivers:
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:14250
+          thrift_http:
+            endpoint: 0.0.0.0:14268
+          thrift_compact:
+            endpoint: 0.0.0.0:6831
+          thrift_binary:
+            endpoint: 0.0.0.0:6832
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
+      
+      # Add compliance metadata to all traces
+      attributes:
+        actions:
+          - key: compliance.gdpr
+            value: "enabled"
+            action: insert
+          - key: compliance.ai_act
+            value: "enabled"
+            action: insert
+          - key: data.residency
+            value: "eu"
+            action: insert
+          - key: region
+            value: "eu-central-1"
+            action: insert
+
+      # Filter sensitive data for GDPR compliance
+      filter:
+        traces:
+          span:
+            - 'attributes["user.email"] != nil'
+            - 'attributes["user.phone"] != nil'
+            - 'attributes["personal.data"] != nil'
+
+      # Anonymize personal data
+      transform:
+        trace_statements:
+          - context: span
+            statements:
+              - set(attributes["user.id"], SHA256(attributes["user.id"])) where attributes["user.id"] != nil
+              - delete_key(attributes, "user.email") where attributes["user.email"] != nil
+              - delete_key(attributes, "user.phone") where attributes["user.phone"] != nil
+
+    exporters:
+      elasticsearch:
+        endpoints: [http://elasticsearch:9200]
+        index: jaeger-traces
+        mapping:
+          settings:
+            number_of_shards: 3
+            number_of_replicas: 1
+          mappings:
+            properties:
+              compliance:
+                type: object
+                properties:
+                  gdpr:
+                    type: boolean
+                  ai_act:
+                    type: boolean
+              data_residency:
+                type: keyword
+              region:
+                type: keyword
+
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+        namespace: jaeger
+        const_labels:
+          compliance: gdpr
+          region: eu-central-1
+
+    service:
+      extensions: [health_check, pprof, zpages]
+      pipelines:
+        traces:
+          receivers: [jaeger, otlp]
+          processors: [attributes, filter, transform, batch]
+          exporters: [elasticsearch, prometheus]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: euvoice
+  labels:
+    app: jaeger
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+      - name: jaeger
+        image: jaegertracing/jaeger-opentelemetry:1.49.0
+        args:
+          - --config=/etc/jaeger/jaeger.yaml
+        ports:
+        - containerPort: 16686
+          name: ui
+        - containerPort: 14250
+          name: grpc
+        - containerPort: 14268
+          name: http
+        - containerPort: 6831
+          name: compact
+        - containerPort: 6832
+          name: binary
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        - containerPort: 8889
+          name: metrics
+        env:
+        - name: SPAN_STORAGE_TYPE
+          value: elasticsearch
+        - name: ES_SERVER_URLS
+          value: http://elasticsearch:9200
+        - name: ES_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: elasticsearch-credentials
+              key: username
+        - name: ES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: elasticsearch-credentials
+              key: password
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: jaeger-config
+          mountPath: /etc/jaeger
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 16686
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 16686
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: jaeger-config
+        configMap:
+          name: jaeger-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: euvoice
+  labels:
+    app: jaeger
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8889"
+spec:
+  selector:
+    app: jaeger
+  type: ClusterIP
+  ports:
+  - port: 16686
+    targetPort: 16686
+    name: ui
+  - port: 14250
+    targetPort: 14250
+    name: grpc
+  - port: 14268
+    targetPort: 14268
+    name: http
+  - port: 6831
+    targetPort: 6831
+    name: compact
+    protocol: UDP
+  - port: 6832
+    targetPort: 6832
+    name: binary
+    protocol: UDP
+  - port: 4317
+    targetPort: 4317
+    name: otlp-grpc
+  - port: 4318
+    targetPort: 4318
+    name: otlp-http
+  - port: 8889
+    targetPort: 8889
+    name: metrics
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: elasticsearch-credentials
+  namespace: euvoice
+  labels:
+    app: jaeger
+type: Opaque
+data:
+  username: {{ "elastic" | b64enc }}
+  password: {{ "changeme" | b64enc }}
+---
+# Elasticsearch for Jaeger storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: euvoice
+  labels:
+    app: elasticsearch
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+        ports:
+        - containerPort: 9200
+          name: http
+        - containerPort: 9300
+          name: transport
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: ES_JAVA_OPTS
+          value: "-Xms1g -Xmx1g"
+        - name: xpack.security.enabled
+          value: "true"
+        - name: xpack.security.transport.ssl.enabled
+          value: "false"
+        - name: xpack.security.http.ssl.enabled
+          value: "false"
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: elasticsearch-credentials
+              key: password
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 1
+            memory: 4Gi
+        volumeMounts:
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+            httpHeaders:
+            - name: Authorization
+              value: "Basic ZWxhc3RpYzpjaGFuZ2VtZQ=="
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+            httpHeaders:
+            - name: Authorization
+              value: "Basic ZWxhc3RpYzpjaGFuZ2VtZQ=="
+          initialDelaySeconds: 30
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: elasticsearch-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: gp3-encrypted
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: euvoice
+  labels:
+    app: elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  type: ClusterIP
+  ports:
+  - port: 9200
+    targetPort: 9200
+    name: http
+  - port: 9300
+    targetPort: 9300
+    name: transport

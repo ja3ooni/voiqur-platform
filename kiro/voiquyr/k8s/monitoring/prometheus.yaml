@@ -1,0 +1,445 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: euvoice
+  labels:
+    app: prometheus
+    compliance.euvoice.ai/gdpr: "enabled"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: euvoice
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: euvoice
+  labels:
+    app: prometheus
+    compliance.euvoice.ai/gdpr: "enabled"
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'euvoice-eu-central-1'
+        region: 'eu-central-1'
+        compliance: 'gdpr'
+
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets:
+          - alertmanager:9093
+
+    scrape_configs:
+    # Kubernetes API server
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+      - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+    # Kubernetes nodes
+    - job_name: 'kubernetes-nodes'
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
+    # EUVoice Multi-Agent Framework
+    - job_name: 'euvoice-framework'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*-framework
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'euvoice_.*'
+        action: keep
+
+    # STT Agent
+    - job_name: 'euvoice-stt-agent'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*-stt-agent
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'stt_.*|voice_.*|transcription_.*'
+        action: keep
+
+    # LLM Agent
+    - job_name: 'euvoice-llm-agent'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*-llm-agent
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'llm_.*|dialog_.*|context_.*'
+        action: keep
+
+    # TTS Agent
+    - job_name: 'euvoice-tts-agent'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*-tts-agent
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'tts_.*|synthesis_.*|voice_cloning_.*'
+        action: keep
+
+    # Specialized Agents
+    - job_name: 'euvoice-specialized-agents'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*(emotion|accent|lip-sync|arabic)-agent
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'emotion_.*|accent_.*|lipsync_.*|arabic_.*'
+        action: keep
+
+    # API Gateway
+    - job_name: 'euvoice-api-gateway'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*-api-gateway
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'http_.*|api_.*|websocket_.*'
+        action: keep
+
+    # Frontend
+    - job_name: 'euvoice-frontend'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - euvoice
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: .*-frontend
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: http
+
+    # Istio Service Mesh
+    - job_name: 'istio-mesh'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - istio-system
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-proxy;http-monitoring
+      metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'istio_.*'
+        action: keep
+
+  alert_rules.yml: |
+    groups:
+    - name: euvoice.rules
+      rules:
+      # Agent Health Alerts
+      - alert: AgentDown
+        expr: up{job=~"euvoice-.*-agent"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          compliance: gdpr
+        annotations:
+          summary: "EUVoice agent {{ $labels.job }} is down"
+          description: "Agent {{ $labels.job }} has been down for more than 1 minute."
+
+      # Performance Alerts
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(voice_processing_latency_seconds_bucket[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          compliance: gdpr
+        annotations:
+          summary: "High voice processing latency detected"
+          description: "95th percentile latency is {{ $value }}s, exceeding 100ms threshold."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.job }}."
+
+      # Resource Alerts
+      - alert: HighMemoryUsage
+        expr: (container_memory_working_set_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanizePercentage }} for {{ $labels.pod }}."
+
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) / (container_spec_cpu_quota / container_spec_cpu_period) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value | humanizePercentage }} for {{ $labels.pod }}."
+
+      # GPU Alerts
+      - alert: GPUMemoryHigh
+        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High GPU memory usage"
+          description: "GPU memory usage is {{ $value | humanizePercentage }} on {{ $labels.gpu }}."
+
+      # Compliance Alerts
+      - alert: GDPRViolationRisk
+        expr: increase(gdpr_data_access_requests_total[1h]) > 100
+        for: 0m
+        labels:
+          severity: critical
+          compliance: gdpr
+        annotations:
+          summary: "Potential GDPR violation - high data access requests"
+          description: "{{ $value }} data access requests in the last hour, investigate for potential breach."
+
+      - alert: DataResidencyViolation
+        expr: increase(data_residency_violations_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          compliance: gdpr
+        annotations:
+          summary: "Data residency violation detected"
+          description: "Data processed outside EU boundaries detected."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: euvoice
+  labels:
+    app: prometheus
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.45.0
+        args:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus/'
+          - '--web.console.libraries=/etc/prometheus/console_libraries'
+          - '--web.console.templates=/etc/prometheus/consoles'
+          - '--storage.tsdb.retention.time=30d'
+          - '--web.enable-lifecycle'
+          - '--web.enable-admin-api'
+          - '--storage.tsdb.wal-compression'
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+        volumeMounts:
+        - name: prometheus-config-volume
+          mountPath: /etc/prometheus/
+        - name: prometheus-storage-volume
+          mountPath: /prometheus/
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9090
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9090
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+      volumes:
+      - name: prometheus-config-volume
+        configMap:
+          defaultMode: 420
+          name: prometheus-config
+      - name: prometheus-storage-volume
+        persistentVolumeClaim:
+          claimName: prometheus-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: euvoice
+  labels:
+    app: prometheus
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+spec:
+  selector:
+    app: prometheus
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 9090
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-storage
+  namespace: euvoice
+  labels:
+    app: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3-encrypted
+  resources:
+    requests:
+      storage: 50Gi

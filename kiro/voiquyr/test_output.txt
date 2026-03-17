@@ -1,0 +1,40 @@
+<string>:10: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+.C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py:26: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  start_time=datetime.utcnow(),
+C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py:27: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  end_time=datetime.utcnow() + timedelta(minutes=10),
+C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py:37: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  start = datetime.utcnow() - timedelta(days=1)
+C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py:38: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  end = datetime.utcnow() + timedelta(days=1)
+C:\Users\aljau\Documents\Develop\voiquyr\src\billing\refund_engine.py:400: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  cutoff = datetime.utcnow() - timedelta(days=days)
+FC:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py:53: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  start_time=datetime.utcnow(),
+C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py:54: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  end_time=datetime.utcnow() + timedelta(minutes=10),
+C:\Users\aljau\Documents\Develop\voiquyr\src\billing\refund_engine.py:233: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  created_at=datetime.utcnow(),
+F
+======================================================================
+FAIL: test_record_usage_and_invoice (__main__.TestBillingService.test_record_usage_and_invoice)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py", line 44, in test_record_usage_and_invoice
+    self.assertEqual(invoice.total, Decimal("1.65"))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Decimal('0.65') != Decimal('1.65')
+
+======================================================================
+FAIL: test_refund_integration (__main__.TestBillingService.test_refund_integration)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\aljau\Documents\Develop\voiquyr\test_billing_integration.py", line 66, in test_refund_integration
+    self.assertEqual(refunds[0].refund_amount, Decimal("1.15")) # 10 * 0.10 * 1.15 = 1.15
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Decimal('0.15') != Decimal('1.15')
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.007s
+
+FAILED (failures=2)

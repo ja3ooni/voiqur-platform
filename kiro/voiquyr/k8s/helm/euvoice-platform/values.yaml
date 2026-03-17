@@ -1,0 +1,390 @@
+# EUVoice AI Platform Helm Values
+
+global:
+  # EU compliance settings
+  region: "eu-central-1"
+  dataResidency: "eu"
+  gdprCompliance: true
+  aiActCompliance: true
+  
+  # Image registry
+  imageRegistry: "registry.eu-central-1.amazonaws.com"
+  imagePullSecrets: []
+  
+  # Storage class for EU compliance
+  storageClass: "gp3-encrypted"
+  
+  # Network policies
+  networkPolicies:
+    enabled: true
+    denyAll: false
+
+# Namespace configuration
+namespace:
+  create: true
+  name: "euvoice"
+  labels:
+    compliance: "gdpr"
+    region: "eu"
+  annotations:
+    "compliance.euvoice.ai/gdpr": "enabled"
+    "compliance.euvoice.ai/ai-act": "enabled"
+
+# Resource quotas for namespace isolation
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "50"
+    requests.memory: "200Gi"
+    limits.cpu: "100"
+    limits.memory: "400Gi"
+    persistentvolumeclaims: "50"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+
+# Multi-Agent Framework Core
+multiAgentFramework:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: euvoice/multi-agent-framework
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  
+  env:
+    REDIS_URL: "redis://redis-master:6379"
+    POSTGRES_URL: "postgresql://postgres:5432/euvoice"
+    LOG_LEVEL: "INFO"
+    EU_COMPLIANCE_MODE: "true"
+
+# STT Agent Configuration
+sttAgent:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: euvoice/stt-agent
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "4"
+      memory: "8Gi"
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "8"
+      memory: "16Gi"
+      nvidia.com/gpu: "1"
+  
+  models:
+    voxtralSmall: "mistral/voxtral-small-24b"
+    voxtralMini: "mistral/voxtral-mini-3b"
+    fallback: "nvidia/canary-1b-v2"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# LLM Agent Configuration
+llmAgent:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: euvoice/llm-agent
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "8"
+      memory: "32Gi"
+      nvidia.com/gpu: "1"
+  
+  models:
+    primary: "mistral/small-3.1-22b"
+    enhancement: "tildeopen/llm-30b"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# TTS Agent Configuration
+ttsAgent:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: euvoice/tts-agent
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "2"
+      memory: "8Gi"
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "4"
+      memory: "16Gi"
+      nvidia.com/gpu: "1"
+  
+  models:
+    primary: "xtts-v2"
+    alternatives: ["melotts", "nvidia/parakeet-tdt-0.6b-v3"]
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# Specialized Agents
+emotionAgent:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: euvoice/emotion-agent
+    tag: "0.1.0"
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+accentAgent:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: euvoice/accent-agent
+    tag: "0.1.0"
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+lipSyncAgent:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: euvoice/lip-sync-agent
+    tag: "0.1.0"
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+
+arabicAgent:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: euvoice/arabic-agent
+    tag: "0.1.0"
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+      nvidia.com/gpu: "0.5"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+      nvidia.com/gpu: "1"
+
+# Frontend Dashboard
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: euvoice/frontend-dashboard
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: "0.5"
+      memory: "1Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# API Gateway
+apiGateway:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: euvoice/api-gateway
+    tag: "0.1.0"
+  
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  
+  service:
+    type: LoadBalancer
+    port: 443
+    targetPort: 8080
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+      service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:eu-central-1:ACCOUNT:certificate/CERT-ID"
+
+# Database Configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "changeme"
+    database: "euvoice"
+  primary:
+    persistence:
+      enabled: true
+      size: "100Gi"
+      storageClass: "gp3-encrypted"
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+  metrics:
+    enabled: true
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "changeme"
+  master:
+    persistence:
+      enabled: true
+      size: "20Gi"
+      storageClass: "gp3-encrypted"
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+
+# Monitoring Stack
+monitoring:
+  prometheus:
+    enabled: true
+    retention: "30d"
+    storageSize: "50Gi"
+  
+  grafana:
+    enabled: true
+    adminPassword: "changeme"
+    persistence:
+      enabled: true
+      size: "10Gi"
+  
+  jaeger:
+    enabled: true
+    storage:
+      type: "elasticsearch"
+
+# Security Configuration
+security:
+  networkPolicies:
+    enabled: true
+  
+  podSecurityPolicy:
+    enabled: true
+  
+  rbac:
+    enabled: true
+  
+  encryption:
+    atRest: true
+    inTransit: true
+  
+  auditLogging:
+    enabled: true
+    retention: "7y"  # GDPR requirement
+
+# Istio Service Mesh
+istio:
+  enabled: true
+  gateway:
+    enabled: true
+    hosts:
+      - "api.euvoice.ai"
+      - "dashboard.euvoice.ai"
+  
+  virtualService:
+    enabled: true
+  
+  destinationRule:
+    enabled: true
+    trafficPolicy:
+      tls:
+        mode: ISTIO_MUTUAL
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  
+  hosts:
+    - host: dashboard.euvoice.ai
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+    - host: api.euvoice.ai
+      paths:
+        - path: /
+          pathType: Prefix
+          service: api-gateway
+  
+  tls:
+    - secretName: euvoice-tls
+      hosts:
+        - dashboard.euvoice.ai
+        - api.euvoice.ai

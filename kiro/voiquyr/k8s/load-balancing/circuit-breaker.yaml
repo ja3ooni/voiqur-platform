@@ -1,0 +1,274 @@
+# Circuit Breaker patterns for EUVoice AI Platform
+# Implements fault tolerance and graceful degradation
+
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: euvoice-circuit-breaker
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  host: "*.euvoice.svc.cluster.local"
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+        minHealthPercent: 30
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+      splitExternalLocalOriginErrors: true
+  portLevelSettings:
+  # STT Agent circuit breaker
+  - port:
+      number: 8001
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 15s
+      http:
+        http1MaxPendingRequests: 25
+        maxRequestsPerConnection: 5
+        consecutiveGatewayErrors: 3
+        interval: 20s
+        baseEjectionTime: 20s
+    circuitBreaker:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
+      interval: 20s
+      baseEjectionTime: 20s
+      maxEjectionPercent: 30
+  # LLM Agent circuit breaker (more tolerant due to processing time)
+  - port:
+      number: 8002
+    connectionPool:
+      tcp:
+        maxConnections: 30
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 15
+        maxRequestsPerConnection: 3
+        consecutiveGatewayErrors: 5
+        interval: 60s
+        baseEjectionTime: 60s
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 40
+  # TTS Agent circuit breaker
+  - port:
+      number: 8003
+    connectionPool:
+      tcp:
+        maxConnections: 40
+        connectTimeout: 20s
+      http:
+        http1MaxPendingRequests: 20
+        maxRequestsPerConnection: 4
+        consecutiveGatewayErrors: 4
+        interval: 25s
+        baseEjectionTime: 25s
+    circuitBreaker:
+      consecutiveGatewayErrors: 4
+      consecutive5xxErrors: 4
+      interval: 25s
+      baseEjectionTime: 25s
+      maxEjectionPercent: 35
+---
+# Retry policy for resilient communication
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: euvoice-retry-policy
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  hosts:
+  - euvoice-platform-stt-agent.euvoice.svc.cluster.local
+  - euvoice-platform-llm-agent.euvoice.svc.cluster.local
+  - euvoice-platform-tts-agent.euvoice.svc.cluster.local
+  - euvoice-platform-api-gateway.euvoice.svc.cluster.local
+  http:
+  # STT Agent retry policy
+  - match:
+    - headers:
+        ":authority":
+          exact: euvoice-platform-stt-agent.euvoice.svc.cluster.local
+    route:
+    - destination:
+        host: euvoice-platform-stt-agent.euvoice.svc.cluster.local
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+      retryRemoteLocalities: true
+    timeout: 30s
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+  # LLM Agent retry policy (fewer retries due to processing cost)
+  - match:
+    - headers:
+        ":authority":
+          exact: euvoice-platform-llm-agent.euvoice.svc.cluster.local
+    route:
+    - destination:
+        host: euvoice-platform-llm-agent.euvoice.svc.cluster.local
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+      retryRemoteLocalities: false
+    timeout: 90s
+  # TTS Agent retry policy
+  - match:
+    - headers:
+        ":authority":
+          exact: euvoice-platform-tts-agent.euvoice.svc.cluster.local
+    route:
+    - destination:
+        host: euvoice-platform-tts-agent.euvoice.svc.cluster.local
+    retries:
+      attempts: 3
+      perTryTimeout: 15s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+      retryRemoteLocalities: true
+    timeout: 45s
+  # API Gateway retry policy
+  - match:
+    - headers:
+        ":authority":
+          exact: euvoice-platform-api-gateway.euvoice.svc.cluster.local
+    route:
+    - destination:
+        host: euvoice-platform-api-gateway.euvoice.svc.cluster.local
+    retries:
+      attempts: 2
+      perTryTimeout: 5s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    timeout: 15s
+---
+# Pod Disruption Budgets for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: euvoice-stt-agent-pdb
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: stt-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: stt-agent
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: euvoice-llm-agent-pdb
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: llm-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: llm-agent
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: euvoice-tts-agent-pdb
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: tts-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: tts-agent
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: euvoice-api-gateway-pdb
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: api-gateway
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: euvoice-frontend-pdb
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    component: frontend
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+---
+# Service Monitor for circuit breaker metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: euvoice-circuit-breaker-metrics
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  selector:
+    matchLabels:
+      app: euvoice-platform
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    honorLabels: true
+  namespaceSelector:
+    matchNames:
+    - euvoice

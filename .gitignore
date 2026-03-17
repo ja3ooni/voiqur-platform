@@ -1,0 +1,12 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+.next/
+kiro/voiquyr/audit_logs/
+kiro/voiquyr/.venv/

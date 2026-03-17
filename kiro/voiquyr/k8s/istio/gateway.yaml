@@ -1,0 +1,194 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: euvoice-gateway
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+    compliance.euvoice.ai/ai-act: "enabled"
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: euvoice-tls-secret
+    hosts:
+    - api.euvoice.ai
+    - dashboard.euvoice.ai
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - api.euvoice.ai
+    - dashboard.euvoice.ai
+    # Redirect HTTP to HTTPS for EU compliance
+    tls:
+      httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: euvoice-virtualservice
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+    compliance.euvoice.ai/gdpr: "enabled"
+spec:
+  hosts:
+  - api.euvoice.ai
+  - dashboard.euvoice.ai
+  gateways:
+  - euvoice-gateway
+  http:
+  # Dashboard routes
+  - match:
+    - uri:
+        prefix: /
+      headers:
+        host:
+          exact: dashboard.euvoice.ai
+    route:
+    - destination:
+        host: euvoice-platform-frontend.euvoice.svc.cluster.local
+        port:
+          number: 80
+    headers:
+      response:
+        add:
+          X-GDPR-Compliant: "true"
+          X-Data-Residency: "EU"
+          X-AI-Act-Compliant: "true"
+  # API routes
+  - match:
+    - uri:
+        prefix: /api/v1/stt
+      headers:
+        host:
+          exact: api.euvoice.ai
+    route:
+    - destination:
+        host: euvoice-platform-stt-agent.euvoice.svc.cluster.local
+        port:
+          number: 8001
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /api/v1/llm
+      headers:
+        host:
+          exact: api.euvoice.ai
+    route:
+    - destination:
+        host: euvoice-platform-llm-agent.euvoice.svc.cluster.local
+        port:
+          number: 8002
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+  - match:
+    - uri:
+        prefix: /api/v1/tts
+      headers:
+        host:
+          exact: api.euvoice.ai
+    route:
+    - destination:
+        host: euvoice-platform-tts-agent.euvoice.svc.cluster.local
+        port:
+          number: 8003
+    timeout: 30s
+  - match:
+    - uri:
+        prefix: /ws
+      headers:
+        host:
+          exact: api.euvoice.ai
+    route:
+    - destination:
+        host: euvoice-platform-api-gateway.euvoice.svc.cluster.local
+        port:
+          number: 8080
+  # Default API Gateway route
+  - match:
+    - uri:
+        prefix: /
+      headers:
+        host:
+          exact: api.euvoice.ai
+    route:
+    - destination:
+        host: euvoice-platform-api-gateway.euvoice.svc.cluster.local
+        port:
+          number: 8080
+    headers:
+      response:
+        add:
+          X-GDPR-Compliant: "true"
+          X-Data-Residency: "EU"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: euvoice-destination-rules
+  namespace: euvoice
+  labels:
+    app: euvoice-platform
+spec:
+  host: "*.euvoice.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        maxRequestsPerConnection: 10
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  portLevelSettings:
+  - port:
+      number: 8001
+    connectionPool:
+      tcp:
+        maxConnections: 50
+      http:
+        http1MaxPendingRequests: 25
+        maxRequestsPerConnection: 5
+  - port:
+      number: 8002
+    connectionPool:
+      tcp:
+        maxConnections: 30
+      http:
+        http1MaxPendingRequests: 15
+        maxRequestsPerConnection: 3
+  - port:
+      number: 8003
+    connectionPool:
+      tcp:
+        maxConnections: 40
+      http:
+        http1MaxPendingRequests: 20
+        maxRequestsPerConnection: 4
