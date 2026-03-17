@@ -8,7 +8,7 @@ import jwt
 import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from fastapi import HTTPException, Depends, status
+from fastapi import HTTPException, Depends, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import asyncpg
@@ -193,31 +193,51 @@ class AuthManager:
     
     async def get_current_user(
         self,
+        request: Request,
         credentials: HTTPAuthorizationCredentials = Depends(security)
     ) -> User:
         """
-        Get current authenticated user.
-        
+        Get current authenticated user via real PostgreSQL lookup.
+
         Args:
+            request: FastAPI request (provides access to app.state.db_pool)
             credentials: HTTP authorization credentials
-            
+
         Returns:
-            Current user
+            Current user fetched from the users table
         """
         token_data = await self.verify_token(credentials.credentials)
-        
-        # In a real implementation, fetch user from database
-        # For now, return a mock user based on token data
-        user = User(
-            id=token_data.user_id,
-            email=f"{token_data.username}@example.com",
-            username=token_data.username,
-            scopes=token_data.scopes,
-            eu_resident=token_data.eu_resident,
-            created_at=token_data.iat
+
+        db_pool = getattr(request.app.state, "db_pool", None)
+        if db_pool is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database pool not available"
+            )
+
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM users WHERE id = $1 AND is_active = TRUE",
+                token_data.user_id
+            )
+
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+
+        return User(
+            id=str(row["id"]),
+            email=row["email"],
+            username=row["username"],
+            is_active=row["is_active"],
+            is_verified=row["is_verified"],
+            scopes=list(row["scopes"] or []),
+            eu_resident=row["eu_resident"],
+            created_at=row["created_at"],
+            last_login=row["last_login"],
         )
-        
-        return user
     
     def require_scopes(self, required_scopes: List[str]):
         """

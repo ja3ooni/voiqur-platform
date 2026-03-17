@@ -34,10 +34,12 @@ class SecurityMiddleware:
         request = Request(scope, receive)
         
         # Check for HTTPS in production
+        # "testserver" is the hostname used by httpx ASGITransport in tests
+        _NON_HTTPS_ALLOWED = {"localhost", "127.0.0.1", "testserver"}
         if (
             request.headers.get("x-forwarded-proto") != "https" and
             request.url.scheme != "https" and
-            not request.url.hostname in ["localhost", "127.0.0.1"]
+            request.url.hostname not in _NON_HTTPS_ALLOWED
         ):
             # Redirect to HTTPS
             https_url = request.url.replace(scheme="https")

@@ -136,7 +136,6 @@ async def test_schema_tables(db_pool):
 # FOUND-06: verify_token() does real DB lookup
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 2 Plan 01-03 replaces mock get_current_user — not yet implemented")
 async def test_verify_token_db_lookup(app_client, db_pool):
     """verify_token() returns user data fetched from the users table, not a mock."""
     reg_resp = await app_client.post("/api/v1/auth/register", json={
@@ -157,7 +156,6 @@ async def test_verify_token_db_lookup(app_client, db_pool):
 # FOUND-07: POST /auth/register stores bcrypt hash
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 2 Plan 01-03 creates auth router — not yet implemented")
 async def test_register_endpoint(app_client, db_pool):
     """POST /api/v1/auth/register stores a row with a bcrypt-hashed password."""
     response = await app_client.post("/api/v1/auth/register", json={
@@ -175,8 +173,7 @@ async def test_register_endpoint(app_client, db_pool):
 # FOUND-08: POST /auth/login returns signed JWT
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 2 Plan 01-03 creates auth router — not yet implemented")
-async def test_login_endpoint(app_client):
+async def test_login_endpoint(app_client, db_pool):
     """POST /api/v1/auth/login returns an access_token for valid credentials."""
     await app_client.post("/api/v1/auth/register", json={
         "email": "logintest@test.eu", "username": "logintest",

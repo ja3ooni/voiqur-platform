@@ -141,7 +141,14 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
         prefix="/api/v1/integrations",
         tags=["Integrations"]
     )
-    
+
+    from .routers import auth as auth_router
+    app.include_router(
+        auth_router.router,
+        prefix="/api/v1/auth",
+        tags=["Auth"]
+    )
+
     # Store components in app state
     app.state.auth_manager = auth_manager
     app.state.rate_limiter = rate_limiter
