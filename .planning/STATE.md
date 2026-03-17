@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Completed 01-03-PLAN.md — auth router, DB schema init, real get_current_user
+last_updated: "2026-03-17T08:30:33.605Z"
+last_activity: 2026-03-17 — Completed 01-01 (dotenv wiring, .env.example)
+progress:
+  total_phases: 10
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
+---
+
 # Project State
 
 ## Project Reference
@@ -14,7 +30,7 @@ Plan: 2 of 3 in current phase
 Status: In progress
 Last activity: 2026-03-17 — Completed 01-01 (dotenv wiring, .env.example)
 
-Progress: [██░░░░░░░░] 7%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -34,6 +50,7 @@ Progress: [██░░░░░░░░] 7%
 - Trend: accelerating
 
 *Updated after each plan completion*
+| Phase 01-foundation P03 | 12min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -53,6 +70,9 @@ Recent decisions affecting current work:
 - [01-01]: load_dotenv() must be at module level in main.py — uvicorn src.api.main:app bypasses main() entirely
 - [01-01]: Root .gitignore covers .env — no per-directory .gitignore needed
 - [01-01]: Pydantic v2 removed regex= kwarg in Field(), use pattern= instead
+- [Phase 01-foundation]: JWT library: kept import jwt (PyJWT) per plan spec — not python-jose
+- [Phase 01-foundation]: Schema migration: CREATE TABLE IF NOT EXISTS DDL at startup — no Alembic in Phase 1
+- [Phase 01-foundation]: SecurityMiddleware: added testserver to non-HTTPS allowlist for httpx ASGI test clients
 
 ### Pending Todos
 
@@ -66,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17
-Stopped at: Completed 01-01-PLAN.md — dotenv wiring (main.py load_dotenv(), .env.example, .env)
+Last session: 2026-03-17T08:30:33.603Z
+Stopped at: Completed 01-03-PLAN.md — auth router, DB schema init, real get_current_user
 Resume file: None
