@@ -198,7 +198,7 @@ Note: Phase 6 depends only on Phase 1 (billing/integrations are independent of t
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Not started | - |
+| 1. Foundation | 2/4 | In Progress|  |
 | 2. STT | 0/3 | Not started | - |
 | 3. LLM | 0/3 | Not started | - |
 | 4. TTS | 0/3 | Not started | - |

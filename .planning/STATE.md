@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 ## Current Position
 
 Phase: 1 of 10 (Foundation)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-16 — Roadmap and STATE.md initialized
+Plan: 2 of 3 in current phase
+Status: In progress
+Last activity: 2026-03-17 — Completed 01-01 (dotenv wiring, .env.example)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 7%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 2
+- Average duration: 10min
+- Total execution time: 0.33 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-foundation | 2/3 | 20min | 10min |
 
 **Recent Trend:**
-- Last 5 plans: none yet
-- Trend: -
+- Last 5 plans: 01-00 (15min), 01-01 (5min)
+- Trend: accelerating
 
 *Updated after each plan completion*
 
@@ -47,6 +47,12 @@ Recent decisions affecting current work:
 - [Setup]: ElevenLabs SDK for TTS with XTTS-v2 self-hosted path
 - [Setup]: asyncpg + aioredis for async-native DB connections
 - [Setup]: 10-sprint fine-grained phases to keep per-sprint context small
+- [01-00]: asyncio_mode=auto in pytest.ini — no per-test @pytest.mark.asyncio needed
+- [01-00]: aioredis 2.x incompatible with Python 3.14 — guarded with try/except in conftest.py
+- [01-00]: Fixtures skip gracefully (not fail) when PostgreSQL/Redis unavailable
+- [01-01]: load_dotenv() must be at module level in main.py — uvicorn src.api.main:app bypasses main() entirely
+- [01-01]: Root .gitignore covers .env — no per-directory .gitignore needed
+- [01-01]: Pydantic v2 removed regex= kwarg in Field(), use pattern= instead
 
 ### Pending Todos
 
@@ -60,6 +66,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Roadmap created, ready to begin Phase 1 planning
+Last session: 2026-03-17
+Stopped at: Completed 01-01-PLAN.md — dotenv wiring (main.py load_dotenv(), .env.example, .env)
 Resume file: None

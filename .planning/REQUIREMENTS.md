@@ -7,8 +7,8 @@
 
 ### Foundation
 
-- [ ] **FOUND-01**: System loads all secrets from environment variables (`.env` + `APIConfig`)
-- [ ] **FOUND-02**: `.env.example` documents all required vars (MISTRAL, DEEPGRAM, STRIPE, REDIS, POSTGRES, JWT, TWILIO)
+- [x] **FOUND-01**: System loads all secrets from environment variables (`.env` + `APIConfig`)
+- [x] **FOUND-02**: `.env.example` documents all required vars (MISTRAL, DEEPGRAM, STRIPE, REDIS, POSTGRES, JWT, TWILIO)
 - [ ] **FOUND-03**: Redis connects via real `aioredis` connection pool (health check passes)
 - [ ] **FOUND-04**: PostgreSQL connects via real `asyncpg` connection pool (health check passes)
 - [ ] **FOUND-05**: DB migration creates tables: users, sessions, knowledge_items, webhook_registrations, audit_logs
@@ -114,8 +114,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Complete |
+| FOUND-02 | Phase 1 | Complete |
 | FOUND-03 | Phase 1 | Pending |
 | FOUND-04 | Phase 1 | Pending |
 | FOUND-05 | Phase 1 | Pending |
