@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-03-PLAN.md — auth router, DB schema init, real get_current_user
-last_updated: "2026-03-17T10:59:32.937Z"
+stopped_at: Completed 02-00-PLAN.md — STT test scaffold and dependencies
+last_updated: "2026-03-17T13:33:47.290Z"
 last_activity: 2026-03-17 — Completed 01-01 (dotenv wiring, .env.example)
 progress:
   total_phases: 10
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 8
+  completed_plans: 5
   percent: 100
 ---
 
@@ -51,6 +51,7 @@ Progress: [██████████] 100%
 
 *Updated after each plan completion*
 | Phase 01-foundation P03 | 12min | 2 tasks | 6 files |
+| Phase 02-stt P00 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: JWT library: kept import jwt (PyJWT) per plan spec — not python-jose
 - [Phase 01-foundation]: Schema migration: CREATE TABLE IF NOT EXISTS DDL at startup — no Alembic in Phase 1
 - [Phase 01-foundation]: SecurityMiddleware: added testserver to non-HTTPS allowlist for httpx ASGI test clients
+- [Phase 02-stt]: xfail stubs pattern: Wave 0 tests define STT contract before Wave 1/2 implementation
+- [Phase 02-stt]: deepgram-sdk pinned <4.0 — project uses v3 API surface (listen.asyncprerecorded.v(1))
+- [Phase 02-stt]: torch/torchaudio guarded with try/except in stt_agent.py for lean CI venv importability
 
 ### Pending Todos
 
@@ -86,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T08:30:33.603Z
-Stopped at: Completed 01-03-PLAN.md — auth router, DB schema init, real get_current_user
+Last session: 2026-03-17T13:33:47.286Z
+Stopped at: Completed 02-00-PLAN.md — STT test scaffold and dependencies
 Resume file: None

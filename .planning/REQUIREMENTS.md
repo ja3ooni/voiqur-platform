@@ -23,7 +23,7 @@
 - [ ] **STT-02**: Fallback to Mistral Voxtral SDK when Deepgram unavailable
 - [ ] **STT-03**: `LanguageDetector.detect_language()` uses `langdetect` (not random)
 - [ ] **STT-04**: Real transcription results wired into `processing_pipeline.py`
-- [ ] **STT-05**: `pytest tests/test_stt_agent.py` passes with DEEPGRAM_API_KEY set
+- [x] **STT-05**: `pytest tests/test_stt_agent.py` passes with DEEPGRAM_API_KEY set
 
 ### LLM Pipeline
 
@@ -127,7 +127,7 @@
 | STT-02 | Phase 2 | Pending |
 | STT-03 | Phase 2 | Pending |
 | STT-04 | Phase 2 | Pending |
-| STT-05 | Phase 2 | Pending |
+| STT-05 | Phase 2 | Complete |
 | LLM-01 | Phase 3 | Pending |
 | LLM-02 | Phase 3 | Pending |
 | LLM-03 | Phase 3 | Pending |
