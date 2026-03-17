@@ -9,13 +9,13 @@
 
 - [x] **FOUND-01**: System loads all secrets from environment variables (`.env` + `APIConfig`)
 - [x] **FOUND-02**: `.env.example` documents all required vars (MISTRAL, DEEPGRAM, STRIPE, REDIS, POSTGRES, JWT, TWILIO)
-- [ ] **FOUND-03**: Redis connects via real `aioredis` connection pool (health check passes)
-- [ ] **FOUND-04**: PostgreSQL connects via real `asyncpg` connection pool (health check passes)
-- [ ] **FOUND-05**: DB migration creates tables: users, sessions, knowledge_items, webhook_registrations, audit_logs
-- [ ] **FOUND-06**: `verify_token()` decodes real JWT and looks up user in PostgreSQL
-- [ ] **FOUND-07**: User registration endpoint stores bcrypt-hashed passwords in DB
-- [ ] **FOUND-08**: User login endpoint returns real JWT token
-- [ ] **FOUND-09**: `/health` endpoint reports real Redis + PostgreSQL connection status
+- [x] **FOUND-03**: Redis connects via real `aioredis` connection pool (health check passes)
+- [x] **FOUND-04**: PostgreSQL connects via real `asyncpg` connection pool (health check passes)
+- [x] **FOUND-05**: DB migration creates tables: users, sessions, knowledge_items, webhook_registrations, audit_logs
+- [x] **FOUND-06**: `verify_token()` decodes real JWT and looks up user in PostgreSQL
+- [x] **FOUND-07**: User registration endpoint stores bcrypt-hashed passwords in DB
+- [x] **FOUND-08**: User login endpoint returns real JWT token
+- [x] **FOUND-09**: `/health` endpoint reports real Redis + PostgreSQL connection status
 
 ### STT Pipeline
 
@@ -116,13 +116,13 @@
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | Complete |
 | FOUND-02 | Phase 1 | Complete |
-| FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
-| FOUND-05 | Phase 1 | Pending |
-| FOUND-06 | Phase 1 | Pending |
-| FOUND-07 | Phase 1 | Pending |
-| FOUND-08 | Phase 1 | Pending |
-| FOUND-09 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Complete |
+| FOUND-04 | Phase 1 | Complete |
+| FOUND-05 | Phase 1 | Complete |
+| FOUND-06 | Phase 1 | Complete |
+| FOUND-07 | Phase 1 | Complete |
+| FOUND-08 | Phase 1 | Complete |
+| FOUND-09 | Phase 1 | Complete |
 | STT-01 | Phase 2 | Pending |
 | STT-02 | Phase 2 | Pending |
 | STT-03 | Phase 2 | Pending |
