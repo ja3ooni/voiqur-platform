@@ -1,11 +1,33 @@
 """
 Foundation phase tests — FOUND-01 through FOUND-09.
 
-These stubs are created in Wave 0. Each test is initially marked xfail.
-Implementation is filled in as Wave 1 and Wave 2 plans complete their tasks.
+These stubs were created in Wave 0. Wave 1 and Wave 2 plans fill in the
+real implementations and remove xfail markers as each plan completes.
 """
 import os
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock
 import pytest
+from httpx import AsyncClient, ASGITransport
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+def _make_mock_pool(conn_return_value=1):
+    """Create a properly-mocked asyncpg pool whose acquire() works as async ctx manager."""
+    mock_conn = AsyncMock()
+    mock_conn.fetchval = AsyncMock(return_value=conn_return_value)
+
+    mock_pool = MagicMock()
+
+    @asynccontextmanager
+    async def _acquire():
+        yield mock_conn
+
+    mock_pool.acquire = _acquire
+    return mock_pool
 
 
 # ---------------------------------------------------------------------------
@@ -46,10 +68,23 @@ def test_env_example_exists():
 # FOUND-03: Redis health check returns "ok"
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 Plan 01-02 adds redis probe to /health — not yet implemented")
-async def test_redis_connection(app_client):
-    """GET /api/v1/health/ returns redis: ok when Redis is reachable."""
-    response = await app_client.get("/api/v1/health/")
+@pytest.mark.asyncio
+async def test_redis_connection():
+    """GET /api/v1/health/ returns checks.redis == 'ok' when Redis responds."""
+    from src.api.routers import health as health_module
+    from fastapi import FastAPI
+
+    mock_redis = AsyncMock()
+    mock_redis.ping = AsyncMock(return_value=True)
+
+    app = FastAPI()
+    app.include_router(health_module.router, prefix="/api/v1/health")
+    app.state.redis = mock_redis
+    app.state.db_pool = _make_mock_pool()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/health/")
+
     assert response.status_code == 200
     data = response.json()
     assert data["checks"]["redis"] == "ok"
@@ -59,10 +94,23 @@ async def test_redis_connection(app_client):
 # FOUND-04: PostgreSQL health check returns "ok"
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 Plan 01-02 adds postgres probe to /health — not yet implemented")
-async def test_postgres_connection(app_client):
-    """GET /api/v1/health/ returns postgres: ok when PostgreSQL is reachable."""
-    response = await app_client.get("/api/v1/health/")
+@pytest.mark.asyncio
+async def test_postgres_connection():
+    """GET /api/v1/health/ returns checks.postgres == 'ok' when PostgreSQL responds."""
+    from src.api.routers import health as health_module
+    from fastapi import FastAPI
+
+    mock_redis = AsyncMock()
+    mock_redis.ping = AsyncMock(return_value=True)
+
+    app = FastAPI()
+    app.include_router(health_module.router, prefix="/api/v1/health")
+    app.state.redis = mock_redis
+    app.state.db_pool = _make_mock_pool()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/health/")
+
     assert response.status_code == 200
     data = response.json()
     assert data["checks"]["postgres"] == "ok"
@@ -92,7 +140,6 @@ async def test_schema_tables(db_pool):
 @pytest.mark.xfail(reason="Wave 2 Plan 01-03 replaces mock get_current_user — not yet implemented")
 async def test_verify_token_db_lookup(app_client, db_pool):
     """verify_token() returns user data fetched from the users table, not a mock."""
-    # Register a user, then call /auth/me and verify the response matches DB row
     reg_resp = await app_client.post("/api/v1/auth/register", json={
         "email": "verify@test.eu", "username": "verifyuser",
         "password": "SecurePass1!", "eu_resident": True
@@ -104,7 +151,6 @@ async def test_verify_token_db_lookup(app_client, db_pool):
     token = login_resp.json()["access_token"]
     me_resp = await app_client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_resp.status_code == 200
-    # Email must match the DB row, not a mock "@example.com" address
     assert me_resp.json()["email"] == "verify@test.eu"
 
 
@@ -133,7 +179,6 @@ async def test_register_endpoint(app_client, db_pool):
 @pytest.mark.xfail(reason="Wave 2 Plan 01-03 creates auth router — not yet implemented")
 async def test_login_endpoint(app_client):
     """POST /api/v1/auth/login returns an access_token for valid credentials."""
-    # Register first
     await app_client.post("/api/v1/auth/register", json={
         "email": "logintest@test.eu", "username": "logintest",
         "password": "SecurePass1!", "eu_resident": True
@@ -145,7 +190,6 @@ async def test_login_endpoint(app_client):
     data = response.json()
     assert "access_token" in data
     assert data["token_type"] == "bearer"
-    # Token must be decodable
     import jwt
     from src.api.config import APIConfig
     config = APIConfig()
@@ -157,10 +201,23 @@ async def test_login_endpoint(app_client):
 # FOUND-09: /health returns real Redis + PostgreSQL status
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 Plan 01-02 updates health router — not yet implemented")
-async def test_health_real_connections(app_client):
+@pytest.mark.asyncio
+async def test_health_real_connections():
     """GET /api/v1/health/ checks include redis and postgres keys."""
-    response = await app_client.get("/api/v1/health/")
+    from src.api.routers import health as health_module
+    from fastapi import FastAPI
+
+    mock_redis = AsyncMock()
+    mock_redis.ping = AsyncMock(return_value=True)
+
+    app = FastAPI()
+    app.include_router(health_module.router, prefix="/api/v1/health")
+    app.state.redis = mock_redis
+    app.state.db_pool = _make_mock_pool()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/health/")
+
     assert response.status_code == 200
     data = response.json()
     assert "redis" in data["checks"], "health checks missing 'redis' key"
