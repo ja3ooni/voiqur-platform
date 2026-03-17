@@ -4,7 +4,7 @@ Health Check Router
 Provides health check endpoints for monitoring and load balancing.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Dict, Any
 import time
@@ -42,28 +42,57 @@ class DetailedHealthStatus(BaseModel):
 startup_time = time.time()
 
 
-@router.get("/", response_model=HealthStatus)
-async def health_check():
+@router.get("/")
+async def health_check(request: Request):
     """
-    Basic health check endpoint.
-    
-    Returns basic health status for load balancer health checks.
+    Basic health check endpoint — performs real Redis and PostgreSQL probes.
+
+    Returns {"status": "healthy"|"degraded", "checks": {"redis": "ok"|"error",
+    "postgres": "ok"|"error"}} for load balancer health checks.
+
+    The response_model=HealthStatus annotation has been removed because the
+    enriched checks dict (with redis/postgres keys) does not match the original
+    HealthStatus schema. Downstream consumers should read the raw JSON.
     """
     current_time = time.time()
     uptime = current_time - startup_time
-    
-    # Basic checks
-    checks = {
-        "api": "healthy",
-        "timestamp": current_time
+
+    checks: Dict[str, Any] = {"api": "healthy", "timestamp": current_time}
+
+    # Redis probe
+    redis = getattr(request.app.state, "redis", None)
+    if redis is not None:
+        try:
+            await redis.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "error"
+    else:
+        checks["redis"] = "not_initialized"
+
+    # PostgreSQL probe
+    db_pool = getattr(request.app.state, "db_pool", None)
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            checks["postgres"] = "ok"
+        except Exception:
+            checks["postgres"] = "error"
+    else:
+        checks["postgres"] = "not_initialized"
+
+    # Overall status: healthy only if all infrastructure checks are "ok"
+    infra_values = [v for k, v in checks.items() if k not in ("api", "timestamp")]
+    overall = "healthy" if all(v == "ok" for v in infra_values) else "degraded"
+
+    return {
+        "status": overall,
+        "timestamp": current_time,
+        "version": "1.0.0",
+        "uptime": uptime,
+        "checks": checks,
     }
-    
-    return HealthStatus(
-        status="healthy",
-        timestamp=current_time,
-        uptime=uptime,
-        checks=checks
-    )
 
 
 @router.get("/ready")

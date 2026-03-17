@@ -13,6 +13,8 @@ from fastapi.openapi.utils import get_openapi
 import time
 import logging
 from typing import Optional
+import asyncpg
+import redis.asyncio as aioredis
 
 from .auth import AuthManager
 from .rate_limiter import RateLimiter
@@ -193,15 +195,50 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
     async def startup_event():
         """Initialize services on startup."""
         logger.info("Starting EUVoice AI Platform API")
+
+        # Initialize shared connection pools
+        try:
+            app.state.db_pool = await asyncpg.create_pool(
+                dsn=config.database_url,
+                min_size=2,
+                max_size=10,
+                command_timeout=30,
+            )
+            logger.info("PostgreSQL pool initialized")
+        except Exception as e:
+            logger.error(f"Failed to create PostgreSQL pool: {e}")
+            app.state.db_pool = None
+
+        try:
+            app.state.redis = aioredis.from_url(
+                config.redis_url,
+                decode_responses=True,
+                socket_connect_timeout=5,
+            )
+            await app.state.redis.ping()
+            logger.info("Redis client initialized")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            app.state.redis = None
+
         await auth_manager.initialize()
         await rate_limiter.initialize()
         await webhook_service.initialize()
         await integration_manager.start()
-    
+
     @app.on_event("shutdown")
     async def shutdown_event():
         """Cleanup on shutdown."""
         logger.info("Shutting down EUVoice AI Platform API")
+
+        # Close connection pools before other cleanup
+        if getattr(app.state, "db_pool", None):
+            await app.state.db_pool.close()
+            logger.info("PostgreSQL pool closed")
+        if getattr(app.state, "redis", None):
+            await app.state.redis.aclose()
+            logger.info("Redis client closed")
+
         await integration_manager.stop()
         await webhook_service.shutdown()
         await auth_manager.cleanup()
