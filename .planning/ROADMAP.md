@@ -50,12 +50,13 @@ Plans:
   2. When `DEEPGRAM_API_KEY` is absent, the system falls back to Mistral Voxtral without crashing
   3. `LanguageDetector.detect_language()` returns a real language code (e.g., `"en"`, `"ar"`) for sample text, not a random value
   4. `pytest tests/test_stt_agent.py` passes with `DEEPGRAM_API_KEY` set in the test environment
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Deepgram SDK async-live streaming in `VoxtralModelManager`
-- [ ] 02-02: Voxtral fallback + `langdetect` language detection
-- [ ] 02-03: Wire real transcription into `processing_pipeline.py` + test
+- [ ] 02-00-PLAN.md — Install deepgram-sdk/mistralai/langdetect, rewrite test_stt_agent.py as pytest xfail stubs (STT-05)
+- [ ] 02-01-PLAN.md — Deepgram SDK async pre-recorded transcription + Voxtral fallback in VoxtralModelManager (STT-01, STT-02)
+- [ ] 02-02-PLAN.md — langdetect language detection in LanguageDetector.detect_language() (STT-03)
+- [ ] 02-03-PLAN.md — Wire real STT into processing_pipeline.py, remove xfail markers, finalize tests (STT-04, STT-05)
 
 ### Phase 3: LLM
 **Goal**: Conversation turns produce real Mistral API responses with tool calling and multi-turn history
@@ -199,7 +200,7 @@ Note: Phase 6 depends only on Phase 1 (billing/integrations are independent of t
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-03-17 |
-| 2. STT | 0/3 | Not started | - |
+| 2. STT | 0/4 | Not started | - |
 | 3. LLM | 0/3 | Not started | - |
 | 4. TTS | 0/3 | Not started | - |
 | 5. Telephony | 0/3 | Not started | - |
