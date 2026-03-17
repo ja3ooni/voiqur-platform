@@ -6,6 +6,9 @@ Implements real-time streaming capabilities with language detection and accent-a
 import asyncio
 import logging
 import numpy as np
+import os
+import io
+import scipy.io.wavfile
 try:
     import torch
     import torchaudio
@@ -128,13 +131,15 @@ class AudioPreprocessor:
 
 class VoxtralModelManager:
     """Manager for Mistral Voxtral models with fallback support"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.current_model = None
         self.model_type = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if _TORCH_AVAILABLE else None
         self.models_cache = {}
+        self._deepgram_api_key = os.getenv("DEEPGRAM_API_KEY")
+        self._mistral_api_key = os.getenv("MISTRAL_API_KEY")
         
     async def load_model(self, model_type: ModelType, model_path: Optional[str] = None) -> bool:
         """Load and initialize Voxtral model"""
@@ -216,30 +221,62 @@ class VoxtralModelManager:
             "sample_rate": 16000
         }
     
+    def _chunk_to_wav_bytes(self, chunk: AudioChunk) -> bytes:
+        """Encode numpy float32 audio as WAV bytes for API upload."""
+        buf = io.BytesIO()
+        audio_int16 = (chunk.data * 32767).astype(np.int16)
+        scipy.io.wavfile.write(buf, chunk.sample_rate, audio_int16)
+        return buf.getvalue()
+
+    async def _transcribe_deepgram(self, audio_bytes: bytes) -> str:
+        """Call Deepgram pre-recorded API (v3 SDK)."""
+        from deepgram import DeepgramClient, PrerecordedOptions
+        client = DeepgramClient(self._deepgram_api_key)
+        payload = {"buffer": audio_bytes}
+        options = PrerecordedOptions(model="nova-2", language="en", punctuate=True)
+        response = await client.listen.asyncprerecorded.v("1").transcribe_file(payload, options)
+        return response.results.channels[0].alternatives[0].transcript
+
+    async def _transcribe_voxtral(self, audio_bytes: bytes) -> str:
+        """Call Mistral Voxtral API as fallback (sync SDK wrapped in executor)."""
+        from mistralai import Mistral
+        client = Mistral(api_key=self._mistral_api_key)
+        response = await asyncio.to_thread(
+            client.audio.transcriptions.complete,
+            model="voxtral-mini-latest",
+            file={"content": audio_bytes, "file_name": "audio.wav"},
+        )
+        return response.text
+
     async def transcribe(self, audio_chunk: AudioChunk) -> TranscriptionResult:
-        """Transcribe audio chunk using current model"""
+        """Transcribe audio chunk using Deepgram (primary) or Voxtral (fallback)."""
         if not self.current_model:
             raise RuntimeError("No model loaded")
-        
+
         try:
-            # Simulate transcription processing
-            # In real implementation, this would call the actual model
-            await asyncio.sleep(0.05)  # Simulate processing time
-            
-            # Mock transcription result
-            mock_text = f"Transcribed audio chunk {audio_chunk.chunk_id}"
-            confidence = 0.95 + (np.random.random() * 0.05)  # 95-100% confidence
-            
+            audio_bytes = self._chunk_to_wav_bytes(audio_chunk)
+
+            if self._deepgram_api_key:
+                try:
+                    text = await self._transcribe_deepgram(audio_bytes)
+                except Exception as e:
+                    self.logger.warning(f"Deepgram failed ({e}), falling back to Voxtral")
+                    text = await self._transcribe_voxtral(audio_bytes)
+            elif self._mistral_api_key:
+                text = await self._transcribe_voxtral(audio_bytes)
+            else:
+                raise RuntimeError("No STT API key available (set DEEPGRAM_API_KEY or MISTRAL_API_KEY)")
+
             return TranscriptionResult(
-                text=mock_text,
-                confidence=confidence,
-                language="en",  # Would be detected by language detection
+                text=text,
+                confidence=0.95,
+                language="",  # LanguageDetector fills this post-transcription
                 dialect=None,
                 timestamps=[(audio_chunk.timestamp, audio_chunk.timestamp + 0.5)],
                 is_partial=False,
                 chunk_id=audio_chunk.chunk_id
             )
-            
+
         except Exception as e:
             self.logger.error(f"Transcription failed: {e}")
             raise
