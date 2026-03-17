@@ -19,6 +19,9 @@ torchaudio>=2.0.0
 numpy>=1.24.0
 scipy>=1.10.0
 websockets>=11.0.0
+deepgram-sdk>=3.1.0,<4.0
+mistralai>=2.0.0
+langdetect>=1.0.9
 
 # Optional dependencies for enhanced functionality
 # Uncomment as needed:
