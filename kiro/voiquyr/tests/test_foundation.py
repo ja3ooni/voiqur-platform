@@ -120,7 +120,6 @@ async def test_postgres_connection():
 # FOUND-05: DB migration creates required tables
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 2 Plan 01-03 creates schema — not yet implemented")
 async def test_schema_tables(db_pool):
     """All required tables exist after app startup schema init."""
     required_tables = ["users", "sessions", "knowledge_items", "webhook_registrations", "audit_logs"]

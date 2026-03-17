@@ -18,8 +18,12 @@ Usage in route handlers:
         row = await conn.fetchrow("SELECT 1")
 """
 
+import logging as _logging
+
 import asyncpg
 from fastapi import Request, HTTPException, status
+
+_schema_logger = _logging.getLogger(__name__)
 
 
 async def get_db(request: Request) -> asyncpg.Connection:
@@ -65,3 +69,69 @@ async def get_redis(request: Request):
             detail="Redis client not initialized",
         )
     return redis
+
+
+async def create_schema(pool: asyncpg.Pool) -> None:
+    """
+    Create all required database tables if they do not exist.
+
+    Called once during app startup. Uses CREATE TABLE IF NOT EXISTS so it is
+    safe to call on a database that already has the tables.
+    Matches the raw DDL pattern used by src/core/knowledge_base.py.
+    """
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                email VARCHAR(255) UNIQUE NOT NULL,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                hashed_password VARCHAR(255) NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                is_verified BOOLEAN DEFAULT FALSE,
+                scopes TEXT[] DEFAULT '{}',
+                eu_resident BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                last_login TIMESTAMPTZ
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                refresh_token TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS knowledge_items (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                key VARCHAR(500) UNIQUE NOT NULL,
+                value TEXT NOT NULL,
+                metadata JSONB DEFAULT '{}',
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_registrations (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                url TEXT NOT NULL,
+                events TEXT[] DEFAULT '{}',
+                secret VARCHAR(255),
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                last_triggered TIMESTAMPTZ
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                event_type VARCHAR(100) NOT NULL,
+                user_id UUID,
+                details JSONB DEFAULT '{}',
+                ip_address INET,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        _schema_logger.info("Database schema initialized (all tables created or already exist)")

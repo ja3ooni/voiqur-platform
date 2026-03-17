@@ -209,6 +209,11 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
             logger.error(f"Failed to create PostgreSQL pool: {e}")
             app.state.db_pool = None
 
+        # Initialize schema (after db_pool is ready)
+        if app.state.db_pool is not None:
+            from .db import create_schema
+            await create_schema(app.state.db_pool)
+
         try:
             app.state.redis = aioredis.from_url(
                 config.redis_url,
