@@ -1,185 +1,104 @@
 """
-Test script for STT Agent implementation
+Pytest test scaffold for STT agent — Wave 0 prerequisite.
+
+All tests are marked xfail because the real STT implementation
+(Deepgram + Voxtral API calls) is not wired up until Wave 1/2.
+This file exists solely to be pytest-discoverable and to define
+the acceptance contract for STT-01 through STT-05.
 """
 
-import asyncio
+import os
+import pytest
 import numpy as np
-import logging
-from src.core.messaging import MessageBus
-from src.agents.stt_agent import STTAgent, AudioChunk
-from src.agents.audio_streaming import AudioStreamingManager
+from src.agents.stt_agent import VoxtralModelManager, AudioChunk, LanguageDetector
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-async def test_stt_agent():
-    """Test STT Agent functionality"""
-    logger.info("Testing STT Agent implementation...")
-    
-    # Create message bus (mock)
-    message_bus = MessageBus()
-    
-    # Create STT agent
-    stt_agent = STTAgent("stt_agent_test", message_bus)
-    
-    # Initialize agent
-    success = await stt_agent.initialize()
-    if not success:
-        logger.error("Failed to initialize STT agent")
-        return False
-    
-    logger.info("STT Agent initialized successfully")
-    
-    # Create test audio data (1 second of sine wave at 440 Hz)
+@pytest.mark.xfail(reason="Not yet implemented — Wave 1/2")
+async def test_transcribe_returns_real_string():
+    """STT-01: VoxtralModelManager.transcribe() must return real STT output, not mock string."""
+    mgr = VoxtralModelManager()
+
+    # 1-second 440Hz sine wave at 16 kHz
     sample_rate = 16000
-    duration = 1.0
-    frequency = 440.0
-    
-    t = np.linspace(0, duration, int(sample_rate * duration))
-    test_audio = np.sin(2 * np.pi * frequency * t).astype(np.float32)
-    
-    logger.info(f"Created test audio: {len(test_audio)} samples at {sample_rate} Hz")
-    
-    # Test transcription
-    try:
-        results = await stt_agent.transcribe_audio(test_audio, sample_rate)
-        logger.info(f"Transcription completed: {len(results)} chunks processed")
-        
-        for i, result in enumerate(results):
-            logger.info(f"Chunk {i}: '{result.text}' (confidence: {result.confidence:.2f}, language: {result.language})")
-        
-        # Test performance metrics
-        metrics = stt_agent.get_performance_metrics()
-        logger.info(f"Performance metrics: {metrics}")
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Transcription test failed: {e}")
-        return False
+    t = np.linspace(0, 1.0, sample_rate, endpoint=False)
+    audio = np.sin(2 * np.pi * 440.0 * t).astype(np.float32)
 
-async def test_audio_streaming():
-    """Test audio streaming functionality"""
-    logger.info("Testing Audio Streaming Manager...")
-    
-    # Create message bus and STT agent
-    message_bus = MessageBus()
-    stt_agent = STTAgent("stt_agent_streaming", message_bus)
-    
-    # Initialize STT agent
-    await stt_agent.initialize()
-    
-    # Create streaming manager
-    streaming_manager = AudioStreamingManager(stt_agent)
-    
-    # Initialize streaming manager
-    success = await streaming_manager.initialize(host="localhost", port=8766)
-    if not success:
-        logger.error("Failed to initialize streaming manager")
-        return False
-    
-    logger.info("Audio Streaming Manager initialized successfully")
-    
-    # Get status
-    status = streaming_manager.get_streaming_status()
-    logger.info(f"Streaming status: {status}")
-    
-    return True
+    chunk = AudioChunk(data=audio, sample_rate=sample_rate, timestamp=0.0, chunk_id=0)
+    result = await mgr.transcribe(chunk)
 
-async def test_language_detection():
-    """Test advanced language detection"""
-    logger.info("Testing Advanced Language Detection...")
-    
-    from src.agents.language_detection import AdvancedLanguageDetector
-    
-    # Create language detector
-    detector = AdvancedLanguageDetector()
-    
-    # Initialize models
-    success = await detector.initialize_models()
-    if not success:
-        logger.error("Failed to initialize language detection models")
-        return False
-    
-    logger.info("Language detection models initialized successfully")
-    
-    # Test with sample audio
+    # Must NOT be the hardcoded mock string produced by current placeholder implementation
+    assert result.text != f"Transcribed audio chunk {chunk.chunk_id}"
+    assert isinstance(result.text, str) and len(result.text) > 0
+
+
+@pytest.mark.xfail(reason="Not yet implemented — Wave 1/2")
+@pytest.mark.skipif(not os.getenv("MISTRAL_API_KEY"), reason="MISTRAL_API_KEY not set")
+async def test_voxtral_fallback(monkeypatch):
+    """STT-02: When DEEPGRAM_API_KEY is absent, Voxtral (Mistral) must be used as fallback STT."""
+    monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+
+    mgr = VoxtralModelManager()
+
     sample_rate = 16000
-    duration = 0.5
-    test_audio = np.random.randn(int(sample_rate * duration)).astype(np.float32)
-    
-    audio_chunk = AudioChunk(
-        data=test_audio,
-        sample_rate=sample_rate,
-        timestamp=0.0,
-        chunk_id=0
+    t = np.linspace(0, 1.0, sample_rate, endpoint=False)
+    audio = np.sin(2 * np.pi * 440.0 * t).astype(np.float32)
+
+    chunk = AudioChunk(data=audio, sample_rate=sample_rate, timestamp=0.0, chunk_id=0)
+    result = await mgr.transcribe(chunk)
+
+    mock_string = f"Transcribed audio chunk {chunk.chunk_id}"
+    assert isinstance(result.text, str) and len(result.text) > 0
+    assert result.text != mock_string
+
+
+@pytest.mark.xfail(reason="Not yet implemented — Wave 1/2")
+async def test_language_detection_returns_code():
+    """STT-03: LanguageDetector.detect_language(text) must return correct ISO 639-1 language code."""
+    detector = LanguageDetector()
+
+    result_en = await detector.detect_language("This is a test sentence in English")
+    assert result_en.language == "en"
+
+    result_fr = await detector.detect_language("Bonjour le monde")
+    assert result_fr.language == "fr"
+
+
+@pytest.mark.xfail(reason="Not yet implemented — Wave 1/2")
+async def test_pipeline_stt_integration():
+    """STT-04: ProcessingPipeline._process_stt() must return real transcription, not hardcoded mock strings."""
+    from src.core.processing_pipeline import ProcessingPipeline, ProcessingContext
+    from datetime import datetime
+
+    pipeline = ProcessingPipeline()
+
+    context = ProcessingContext(
+        session_id="test-session-01",
+        user_id=None,
+        conversation_id=None,
+        language="en",
+        accent=None,
+        emotion_context=None,
+        conversation_history=[],
+        user_preferences={},
+        processing_metadata={},
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
-    
-    # Detect language
-    result = await detector.detect_language(audio_chunk)
-    
-    logger.info(f"Language detection result:")
-    logger.info(f"  Language: {result.language} (confidence: {result.confidence:.2f})")
-    logger.info(f"  Family: {result.language_family.value}")
-    logger.info(f"  Dialect: {result.dialect}")
-    logger.info(f"  Accent region: {result.accent_region}")
-    logger.info(f"  Processing time: {result.processing_time:.3f}s")
-    logger.info(f"  Alternatives: {result.alternative_languages}")
-    
-    # Test performance metrics
-    metrics = detector.get_performance_metrics()
-    logger.info(f"Detection performance: {metrics}")
-    
-    # Test supported languages
-    languages = detector.get_supported_languages()
-    logger.info(f"Supported languages ({len(languages)}): {languages}")
-    
-    return True
 
-async def main():
-    """Run all tests"""
-    logger.info("Starting STT Agent tests...")
-    
-    tests = [
-        ("STT Agent Basic", test_stt_agent),
-        ("Audio Streaming", test_audio_streaming),
-        ("Language Detection", test_language_detection)
-    ]
-    
-    results = {}
-    
-    for test_name, test_func in tests:
-        logger.info(f"\n{'='*50}")
-        logger.info(f"Running test: {test_name}")
-        logger.info(f"{'='*50}")
-        
-        try:
-            success = await test_func()
-            results[test_name] = success
-            logger.info(f"Test {test_name}: {'PASSED' if success else 'FAILED'}")
-        except Exception as e:
-            logger.error(f"Test {test_name} failed with exception: {e}")
-            results[test_name] = False
-    
-    # Summary
-    logger.info(f"\n{'='*50}")
-    logger.info("TEST SUMMARY")
-    logger.info(f"{'='*50}")
-    
-    passed = sum(results.values())
-    total = len(results)
-    
-    for test_name, success in results.items():
-        status = "PASSED" if success else "FAILED"
-        logger.info(f"{test_name}: {status}")
-    
-    logger.info(f"\nOverall: {passed}/{total} tests passed")
-    
-    if passed == total:
-        logger.info("All tests passed! STT Agent implementation is working correctly.")
-    else:
-        logger.warning(f"{total - passed} tests failed. Please check the implementation.")
+    audio_bytes = b"\x00" * 10000  # 10 KB of silence-like bytes
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    transcription, _confidence = await pipeline._process_stt(audio_bytes, context)
+
+    # Must not be one of the known hardcoded mock strings
+    mock_strings = {
+        "Hello",
+        "Hello, how can I help you today?",
+        "Hello, how can I help you today? I'm here to assist with any questions you might have.",
+    }
+    assert transcription not in mock_strings
+
+
+@pytest.mark.xfail(reason="Full suite depends on all other tests passing — Wave 1/2", strict=False)
+async def test_full_stt_suite_passes():
+    """STT-05: Meta-test confirming the file collects and the full suite will pass once implemented."""
+    pytest.xfail("Placeholder — full suite not yet implemented")

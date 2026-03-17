@@ -6,8 +6,14 @@ Implements real-time streaming capabilities with language detection and accent-a
 import asyncio
 import logging
 import numpy as np
-import torch
-import torchaudio
+try:
+    import torch
+    import torchaudio
+    _TORCH_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    torch = None  # type: ignore[assignment]
+    torchaudio = None  # type: ignore[assignment]
+    _TORCH_AVAILABLE = False
 from typing import Dict, List, Optional, Tuple, AsyncGenerator, Union
 from dataclasses import dataclass
 from enum import Enum

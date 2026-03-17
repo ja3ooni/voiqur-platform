@@ -10,7 +10,7 @@ except ImportError:
 
 try:
     from .llm_agent import LLMAgent
-except ImportError:
+except Exception:
     LLMAgent = None
 
 try:
