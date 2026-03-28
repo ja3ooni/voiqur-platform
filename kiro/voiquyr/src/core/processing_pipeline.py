@@ -14,6 +14,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import json
 import uuid
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,11 @@ class ProcessingPipeline:
         # Context management
         self.context_cache: Dict[str, ProcessingContext] = {}
         self.context_ttl_minutes = self.config.get("context_ttl_minutes", 30)
-        
+
+        # STT manager (lazily initialized to avoid circular import)
+        self._stt_manager = None
+        self._stt_initialized = False
+
         logger.info("Processing Pipeline initialized")
     
     async def process_voice_request(
@@ -301,39 +306,38 @@ class ProcessingPipeline:
             if request.request_id in self.active_requests:
                 del self.active_requests[request.request_id]
     
+    async def _ensure_stt_ready(self):
+        """Lazily initialize VoxtralModelManager if not yet loaded."""
+        if not self._stt_initialized:
+            from ..agents.stt_agent import VoxtralModelManager  # lazy import avoids circular
+            self._stt_manager = VoxtralModelManager()
+            await self._stt_manager.load_model()
+            self._stt_initialized = True
+
     async def _process_stt(
-        self, 
-        audio_data: bytes, 
+        self,
+        audio_data: bytes,
         context: ProcessingContext
     ) -> tuple[str, float]:
-        """Process audio through Speech-to-Text agent."""
+        """Process audio through Speech-to-Text using VoxtralModelManager."""
         try:
-            # Simulate STT processing (replace with actual STT agent call)
-            await asyncio.sleep(0.1)  # Simulate processing time
-            
-            # Mock transcription based on audio length
-            audio_length = len(audio_data)
-            if audio_length < 1000:
-                transcription = "Hello"
-                confidence = 0.95
-            elif audio_length < 5000:
-                transcription = "Hello, how can I help you today?"
-                confidence = 0.92
-            else:
-                transcription = "Hello, how can I help you today? I'm here to assist with any questions you might have."
-                confidence = 0.88
-            
-            # Apply language and accent context
-            if context.language != "en":
-                transcription = f"[{context.language}] {transcription}"
-                confidence *= 0.9  # Slightly lower confidence for non-English
-            
-            if context.accent:
-                confidence *= 0.95  # Slight confidence adjustment for accent
-            
-            logger.debug(f"STT processed: '{transcription}' (confidence: {confidence:.2f})")
-            return transcription, confidence
-            
+            await self._ensure_stt_ready()
+
+            # Convert raw bytes (int16 PCM) to float32 AudioChunk
+            from ..agents.stt_agent import AudioChunk  # lazy import avoids circular
+            audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32767.0
+            chunk = AudioChunk(
+                data=audio_array,
+                sample_rate=16000,
+                timestamp=0.0,
+                chunk_id=0,
+            )
+
+            result = await self._stt_manager.transcribe(chunk)
+
+            logger.debug(f"STT processed: '{result.text}' (confidence: {result.confidence:.2f})")
+            return result.text, result.confidence
+
         except Exception as e:
             logger.error(f"STT processing failed: {e}")
             if self.enable_graceful_degradation:
