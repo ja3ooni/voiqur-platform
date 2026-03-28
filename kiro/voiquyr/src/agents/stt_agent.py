@@ -27,6 +27,8 @@ from pathlib import Path
 from ..core.models import AgentMessage, AgentState, Task
 from ..core.messaging import MessageBus
 
+from langdetect import detect as langdetect_detect, DetectorFactory
+DetectorFactory.seed = 0
 
 class ModelType(Enum):
     VOXTRAL_SMALL = "mistral-voxtral-small-24b"
@@ -292,43 +294,24 @@ class LanguageDetector:
             "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro",
             "sk", "sl", "sv"
         ]
-        self.accent_regions = {
-            "en": ["uk", "ie", "us", "au", "ca"],
-            "de": ["de", "at", "ch"],
-            "fr": ["fr", "be", "ch", "ca"],
-            "es": ["es", "mx", "ar", "co"],
-            "pt": ["pt", "br"],
-            "it": ["it", "ch"],
-            "nl": ["nl", "be"]
-        }
     
-    async def detect_language(self, audio_chunk: AudioChunk) -> LanguageDetectionResult:
-        """Detect language and accent from audio chunk"""
+    async def detect_language(self, text: str) -> LanguageDetectionResult:
         try:
-            # Simulate language detection processing
-            await asyncio.sleep(0.02)  # Fast language detection
-            
-            # Mock language detection (in real implementation, would use actual model)
-            detected_language = np.random.choice(self.supported_languages)
-            confidence = 0.98 + (np.random.random() * 0.02)  # 98-100% confidence
-            
-            # Detect accent if supported
-            accent_region = None
-            dialect = None
-            if detected_language in self.accent_regions:
-                accent_region = np.random.choice(self.accent_regions[detected_language])
-                dialect = f"{detected_language}-{accent_region}"
-            
+            detected_language = langdetect_detect(text)
             return LanguageDetectionResult(
                 language=detected_language,
-                confidence=confidence,
-                dialect=dialect,
-                accent_region=accent_region
+                confidence=0.95,
+                dialect=None,
+                accent_region=None,
             )
-            
         except Exception as e:
-            self.logger.error(f"Language detection failed: {e}")
-            raise
+            self.logger.warning(f'Language detection failed ({e}), defaulting to en')
+            return LanguageDetectionResult(
+                language='en',
+                confidence=0.5,
+                dialect=None,
+                accent_region=None,
+            )
 
 
 class STTAgent:
@@ -423,31 +406,22 @@ class STTAgent:
             chunks = self.preprocessor.chunk_audio(processed_audio)
             
             for chunk in chunks:
-                # Detect language for first chunk or periodically using advanced detector
+                # Transcribe chunk first (language detection needs text)
+                transcription = await self.model_manager.transcribe(chunk)
+
+                # Detect language for first chunk or periodically
                 if chunk.chunk_id == 0 or chunk.chunk_id % 10 == 0:
                     if self.advanced_language_detector:
-                        language_result = await self.advanced_language_detector.detect_language(chunk)
+                        language_result = await self.advanced_language_detector.detect_language(transcription.text)
                         self.logger.debug(f"Detected language: {language_result.language} (confidence: {language_result.confidence:.2f}, family: {language_result.language_family.value})")
-                        
-                        # Update transcription with detected language info
-                        detected_language = language_result.language
-                        detected_dialect = language_result.dialect
-                        detected_accent = language_result.accent_region
+                        transcription.language = language_result.language
+                        transcription.dialect = language_result.dialect
                     else:
-                        # Fallback to simple language detector
-                        simple_result = await self.language_detector.detect_language(chunk)
-                        detected_language = simple_result.language
-                        detected_dialect = simple_result.dialect
-                        detected_accent = simple_result.accent_region
-                        self.logger.debug(f"Detected language (fallback): {detected_language} (confidence: {simple_result.confidence:.2f})")
-                
-                # Transcribe chunk
-                transcription = await self.model_manager.transcribe(chunk)
-                
-                # Update transcription with language detection results
-                if 'detected_language' in locals():
-                    transcription.language = detected_language
-                    transcription.dialect = detected_dialect
+                        # Fallback to simple language detector using transcribed text
+                        simple_result = await self.language_detector.detect_language(transcription.text)
+                        self.logger.debug(f"Detected language (fallback): {simple_result.language} (confidence: {simple_result.confidence:.2f})")
+                        transcription.language = simple_result.language
+                        transcription.dialect = simple_result.dialect
                 
                 # Update performance metrics
                 self._update_performance_metrics(transcription, time.time() - start_time)
