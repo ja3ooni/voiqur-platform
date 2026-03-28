@@ -67,12 +67,12 @@ Plans:
   2. `_generate_mock_response()` no longer exists in the codebase
   3. A multi-turn conversation (3+ turns) correctly passes the full `messages` history to each Mistral API call
   4. Tool calls defined in `ToolCaller` execute and return results that flow back into the next Mistral call
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Real `MistralClient.chat()` + remove mock response
-- [ ] 03-02: ConversationManager history wiring + Mistral function calling format
-- [ ] 03-03: Multi-turn tool call integration tests
+- [ ] 03-01-PLAN.md — Test stubs + real Mistral API client in MistralModelManager, delete mock (LLM-01, LLM-02)
+- [ ] 03-02-PLAN.md — Tool calling format + ConversationContext history wiring (LLM-03, LLM-04)
+- [ ] 03-03-PLAN.md — Multi-turn tool call integration test (LLM-05)
 
 ### Phase 4: TTS
 **Goal**: LLM responses are synthesized to real audio via ElevenLabs (with XTTS-v2 self-hosted path) and streamed to WebSocket clients
