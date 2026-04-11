@@ -1,0 +1,84 @@
+
+# 2026-03-28 09:11:53.509346
++Modify the LanguageDetector class in src/agents/stt_agent.py. Make these exact changes:
++
++1. Add these two lines near the top of the file, after the existing imports:
++   from langdetect import detect as langdetect_detect, DetectorFactory
++   DetectorFactory.seed = 0
++
++2. Replace the entire detect_language method body. The new signature is:
++   async def detect_language(self, text: str) -> LanguageDetectionResult:
++   The new body: call langdetect_detect(text) to get detected_language, set confidence=0.95, return LanguageDetectionResult(language=detected_language, confidence=confidence, dialect=None, accent_region=None). On exception log warning and return LanguageDetectionResult(language='en', confidence=0.5, dialect=None, accent_region=None). Remove np.random.choice, asyncio.sleep(0.02), and the audio_chunk parameter.
++
++3. Find any call to self.language_detector.detect_language(audio_chunk) or detect_language(chunk) in this file and update it to pass result.text instead.
+
+# 2026-03-28 09:11:53.509404
++Modify the LanguageDetector class in src/agents/stt_agent.py. Make these exact changes:
++
++1. Add these two lines near the top of the file, after the existing imports:
++   from langdetect import detect as langdetect_detect, DetectorFactory
++   DetectorFactory.seed = 0
++
++2. Replace the entire detect_language method body. The new signature is:
++   async def detect_language(self, text: str) -> LanguageDetectionResult:
++   The new body: call langdetect_detect(text) to get detected_language, set confidence=0.95, return LanguageDetectionResult(language=detected_language, confidence=confidence, dialect=None, accent_region=None). On exception log warning and return LanguageDetectionResult(language='en', confidence=0.5, dialect=None, accent_region=None). Remove np.random.choice, asyncio.sleep(0.02), and the audio_chunk parameter.
++
++3. Find any call to self.language_detector.detect_language(audio_chunk) or detect_language(chunk) in this file and update it to pass result.text instead.
+
+# 2026-03-28 09:18:11.193241
++In kiro/voiquyr/src/agents/stt_agent.py, make these exact changes:
++
++1. After the last import line at the top of the file, add:
++   from langdetect import detect as langdetect_detect, DetectorFactory
++   DetectorFactory.seed = 0
++
++2. Find the method 'detect_language' inside the LanguageDetector class. Replace the ENTIRE method with:
++
++    async def detect_language(self, text: str) -> LanguageDetectionResult:
++        try:
++            detected_language = langdetect_detect(text)
++            return LanguageDetectionResult(
++                language=detected_language,
++                confidence=0.95,
++                dialect=None,
++                accent_region=None,
++            )
++        except Exception as e:
++            self.logger.warning(f'Language detection failed ({e}), defaulting to en')
++            return LanguageDetectionResult(
++                language='en',
++                confidence=0.5,
++                dialect=None,
++                accent_region=None,
++            )
++
++3. Find any line in process_audio_stream or similar that calls detect_language(chunk) or detect_language(audio_chunk) and change the argument to result.text
+
+# 2026-03-28 09:18:11.194169
++In kiro/voiquyr/src/agents/stt_agent.py, make these exact changes:
++
++1. After the last import line at the top of the file, add:
++   from langdetect import detect as langdetect_detect, DetectorFactory
++   DetectorFactory.seed = 0
++
++2. Find the method 'detect_language' inside the LanguageDetector class. Replace the ENTIRE method with:
++
++    async def detect_language(self, text: str) -> LanguageDetectionResult:
++        try:
++            detected_language = langdetect_detect(text)
++            return LanguageDetectionResult(
++                language=detected_language,
++                confidence=0.95,
++                dialect=None,
++                accent_region=None,
++            )
++        except Exception as e:
++            self.logger.warning(f'Language detection failed ({e}), defaulting to en')
++            return LanguageDetectionResult(
++                language='en',
++                confidence=0.5,
++                dialect=None,
++                accent_region=None,
++            )
++
++3. Find any line in process_audio_stream or similar that calls detect_language(chunk) or detect_language(audio_chunk) and change the argument to result.text
