@@ -79,8 +79,14 @@ async def create_webhook_service():
     )
     
     # Mock the database connections
-    mock_pool = AsyncMock()
-    mock_pool.acquire.return_value.__aenter__.return_value = MockDatabase()
+    mock_db = MockDatabase()
+    mock_pool = MagicMock()
+    # pg_pool.acquire() is used as `async with pool.acquire() as conn:`
+    # asyncpg returns an async context manager directly from acquire()
+    mock_acquire_ctx = AsyncMock()
+    mock_acquire_ctx.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_acquire_ctx.__aexit__ = AsyncMock(return_value=False)
+    mock_pool.acquire = MagicMock(return_value=mock_acquire_ctx)
     service.pg_pool = mock_pool
     service.redis_client = MockRedis()
     

@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime
 
-from ..auth import AuthManager, User
+from ..auth import AuthManager, User, get_current_user
 from ..models.webhooks import (
     WebhookRegistration, WebhookRegistrationRequest, WebhookRegistrationResponse,
     WebhookUpdateRequest, WebhookListResponse, WebhookDeliveryListResponse,
@@ -40,12 +40,28 @@ def set_webhook_service(service: WebhookService) -> None:
     webhook_service = service
 
 
-# Webhook Registration and Management
+@router.get("/")
+async def webhook_info():
+    """Webhook system information and capabilities."""
+    return {
+        "message": "EUVoice AI Webhook System is operational",
+        "features": [
+            "event_subscriptions",
+            "retry_policies",
+            "delivery_tracking",
+            "security_signing",
+            "eu_data_residency"
+        ],
+        "supported_events": [e.value for e in WebhookEventType],
+    }
+
+
+
 
 @router.post("/", response_model=WebhookRegistrationResponse)
 async def register_webhook(
     request: WebhookRegistrationRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -84,11 +100,11 @@ async def register_webhook(
         raise HTTPException(status_code=500, detail=f"Failed to register webhook: {str(e)}")
 
 
-@router.get("/", response_model=WebhookListResponse)
+@router.get("/list", response_model=WebhookListResponse)
 async def list_webhooks(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Page size"),
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -119,7 +135,7 @@ async def list_webhooks(
 @router.get("/{webhook_id}", response_model=WebhookRegistration)
 async def get_webhook(
     webhook_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -147,7 +163,7 @@ async def get_webhook(
 async def update_webhook(
     webhook_id: str,
     request: WebhookUpdateRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -201,7 +217,7 @@ async def update_webhook(
 @router.delete("/{webhook_id}")
 async def delete_webhook(
     webhook_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -231,7 +247,7 @@ async def delete_webhook(
 async def test_webhook(
     webhook_id: str,
     request: WebhookTestRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -273,7 +289,7 @@ async def get_delivery_history(
     webhook_id: str,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Page size"),
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -306,7 +322,7 @@ async def get_delivery_history(
 async def get_webhook_stats(
     webhook_id: str,
     days: int = Query(7, ge=1, le=90, description="Number of days for statistics"),
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -335,7 +351,7 @@ async def get_webhook_stats(
 async def publish_event(
     event: WebhookEvent,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """
@@ -413,7 +429,7 @@ async def get_webhook_system_info():
 
 @router.get("/system/stats")
 async def get_system_stats(
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     service: WebhookService = Depends(get_webhook_service)
 ):
     """

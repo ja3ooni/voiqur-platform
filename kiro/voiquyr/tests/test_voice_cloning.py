@@ -4,6 +4,9 @@ Test script for voice cloning capabilities in TTS Agent
 Tests the enhanced voice cloning with 6-second samples, cross-lingual synthesis, and MOS scoring
 """
 
+import pytest
+pytest.importorskip("torch")
+
 import asyncio
 import numpy as np
 import logging

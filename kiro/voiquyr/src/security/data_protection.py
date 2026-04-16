@@ -313,6 +313,9 @@ class DataProtectionSystem:
                     # Use consistent pseudonyms
                     matches = re.findall(pattern, anonymized_text)
                     for match in matches:
+                        # re.findall returns tuples when pattern has groups; join them
+                        if isinstance(match, tuple):
+                            match = "".join(match)
                         if match not in self.anonymization_mappings:
                             self.anonymization_mappings[match] = f"{replacement}_{len(self.anonymization_mappings)}"
                         anonymized_text = anonymized_text.replace(match, self.anonymization_mappings[match])

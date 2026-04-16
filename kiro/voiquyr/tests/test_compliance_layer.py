@@ -5,19 +5,13 @@ Feature: voiquyr-differentiators
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings, strategies as st, HealthCheck
 from src.core.compliance_layer import (
     ComplianceLayer,
     ComplianceJurisdiction,
     ComplianceAlert,
     JURISDICTION_RULE_MAP
 )
-
-
-@pytest.fixture
-def compliance_layer():
-    """Setup compliance layer."""
-    return ComplianceLayer()
 
 
 # Property 15: Jurisdiction-to-rule-set mapping
@@ -34,8 +28,9 @@ def compliance_layer():
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_jurisdiction_rule_set_mapping(compliance_layer, jurisdiction, call_id, data_subject_id):
+async def test_jurisdiction_rule_set_mapping(jurisdiction, call_id, data_subject_id):
     """Property 15: Jurisdiction-to-rule-set mapping."""
+    compliance_layer = ComplianceLayer()
     # Get expected rule set
     expected_rule_class = JURISDICTION_RULE_MAP[jurisdiction]
     
@@ -68,8 +63,9 @@ async def test_jurisdiction_rule_set_mapping(compliance_layer, jurisdiction, cal
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_compliance_record_completeness(compliance_layer, jurisdiction, call_id, data_subject_id):
+async def test_compliance_record_completeness(jurisdiction, call_id, data_subject_id):
     """Property 16: Compliance record completeness."""
+    compliance_layer = ComplianceLayer()
     record = await compliance_layer.process_call(
         call_id=str(call_id),
         jurisdiction=jurisdiction,
@@ -103,8 +99,9 @@ async def test_compliance_record_completeness(compliance_layer, jurisdiction, ca
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_erasure_request_completeness(compliance_layer, jurisdiction, data_subject_id):
+async def test_erasure_request_completeness(jurisdiction, data_subject_id):
     """Property 17: Erasure request completeness."""
+    compliance_layer = ComplianceLayer()
     subject_id = str(data_subject_id)
     
     # Create some records

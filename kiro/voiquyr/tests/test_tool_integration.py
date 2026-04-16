@@ -3,6 +3,9 @@ Test script for Tool Calling and Integration capabilities
 Tests function calling interface, plugin system, and agent integration
 """
 
+import pytest
+pytest.importorskip("torch")
+
 import asyncio
 import logging
 import sys

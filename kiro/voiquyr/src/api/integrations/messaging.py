@@ -20,10 +20,8 @@ from ..utils.webhook_publisher import get_global_publisher
 class WhatsAppConfig(IntegrationConfig):
     """WhatsApp Business API configuration."""
     
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.MESSAGING
-        self.provider = "whatsapp"
+    type: IntegrationType = IntegrationType.MESSAGING
+    provider: str = "whatsapp"
     
     # WhatsApp Business API settings
     access_token: str = ""
@@ -42,10 +40,8 @@ class WhatsAppConfig(IntegrationConfig):
 class TelegramConfig(IntegrationConfig):
     """Telegram Bot API configuration."""
     
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.MESSAGING
-        self.provider = "telegram"
+    type: IntegrationType = IntegrationType.MESSAGING
+    provider: str = "telegram"
     
     # Bot settings
     bot_token: str = ""
@@ -62,10 +58,8 @@ class TelegramConfig(IntegrationConfig):
 class SlackConfig(IntegrationConfig):
     """Slack App configuration."""
     
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.MESSAGING
-        self.provider = "slack"
+    type: IntegrationType = IntegrationType.MESSAGING
+    provider: str = "slack"
     
     # OAuth settings
     client_id: str = ""

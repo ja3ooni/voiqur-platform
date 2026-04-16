@@ -26,6 +26,12 @@ class MockHTTPResponse:
         self.data = data or {}
         self.status = status
 
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
 
 async def test_twilio_integration():
     """Test Twilio telephony integration."""

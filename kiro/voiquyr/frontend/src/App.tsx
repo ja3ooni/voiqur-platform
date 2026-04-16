@@ -10,7 +10,7 @@ const App = () => {
   // This is a placeholder for authentication state.
   // We assume the auth state has an `isAuthenticated` property.
   // Using `(state as any)` to avoid TS errors until the auth slice is created.
-  const isAuthenticated = useSelector((state: RootState) => (state as any).auth?.isAuthenticated || false);
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
   return (
     <Box>

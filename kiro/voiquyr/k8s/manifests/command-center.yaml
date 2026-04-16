@@ -1,0 +1,143 @@
+# Command Center Backend + Frontend
+# Images:
+#   voiquyr/command-center-api:latest  (voiquyr-command-center/backend/Dockerfile)
+#   voiquyr/command-center-ui:latest   (voiquyr-command-center/frontend/Dockerfile)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: command-center-api
+  namespace: voiquyr
+  labels:
+    app: command-center-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: command-center-api
+  template:
+    metadata:
+      labels:
+        app: command-center-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: api
+        image: voiquyr/command-center-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8001
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: voiquyr-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: voiquyr-secrets
+              key: redis-url
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voiquyr-secrets
+              key: jwt-secret-key
+        - name: DEEPGRAM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voiquyr-secrets
+              key: deepgram-api-key
+              optional: true
+        - name: ELEVENLABS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voiquyr-secrets
+              key: elevenlabs-api-key
+              optional: true
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: command-center-api
+  namespace: voiquyr
+spec:
+  ports:
+  - port: 8001
+    targetPort: http
+    name: http
+  selector:
+    app: command-center-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: command-center-ui
+  namespace: voiquyr
+  labels:
+    app: command-center-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: command-center-ui
+  template:
+    metadata:
+      labels:
+        app: command-center-ui
+    spec:
+      containers:
+      - name: ui
+        image: voiquyr/command-center-ui:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: command-center-ui
+  namespace: voiquyr
+spec:
+  ports:
+  - port: 80
+    targetPort: http
+    name: http
+  selector:
+    app: command-center-ui

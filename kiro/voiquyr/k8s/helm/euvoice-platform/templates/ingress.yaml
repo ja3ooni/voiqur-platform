@@ -2,50 +2,50 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "euvoice-platform.fullname" . }}-ingress
+  name: {{ include "euvoice-platform.fullname" . }}
   namespace: {{ .Values.namespace.name }}
   labels:
     {{- include "euvoice-platform.labels" . | nindent 4 }}
     app.kubernetes.io/component: ingress
+  {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml .Values.ingress.annotations | nindent 4 }}
-    # EU compliance annotations
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      add_header X-GDPR-Compliant "true" always;
-      add_header X-Data-Residency "EU" always;
-      add_header X-AI-Act-Compliant "true" always;
-    # Security headers
-    nginx.ingress.kubernetes.io/server-snippet: |
-      add_header X-Frame-Options "SAMEORIGIN" always;
-      add_header X-Content-Type-Options "nosniff" always;
-      add_header X-XSS-Protection "1; mode=block" always;
-      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
+  {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
-    {{- end }}
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
-      http:
-        paths:
-          {{- range .paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
-            backend:
-              service:
-                name: {{ include "euvoice-platform.fullname" $ }}-{{ .service }}
-                port:
-                  number: {{ if eq .service "frontend" }}{{ $.Values.frontend.service.port }}{{ else }}{{ $.Values.apiGateway.service.port }}{{ end }}
-          {{- end }}
-    {{- end }}
+  {{- range .Values.ingress.hosts }}
+  - host: {{ .host }}
+    http:
+      paths:
+      {{- range .paths }}
+      - path: {{ .path }}
+        pathType: {{ .pathType }}
+        backend:
+          service:
+            {{- if eq .service "api" }}
+            name: {{ include "euvoice-platform.fullname" $ }}-api
+            port:
+              number: {{ $.Values.api.service.port }}
+            {{- else if eq .service "dashboard" }}
+            name: {{ include "euvoice-platform.fullname" $ }}-dashboard
+            port:
+              number: {{ $.Values.dashboard.service.port }}
+            {{- else if eq .service "commandCenterApi" }}
+            name: {{ include "euvoice-platform.fullname" $ }}-cc-api
+            port:
+              number: {{ $.Values.commandCenterApi.service.port }}
+            {{- else if eq .service "commandCenterUi" }}
+            name: {{ include "euvoice-platform.fullname" $ }}-cc-ui
+            port:
+              number: {{ $.Values.commandCenterUi.service.port }}
+            {{- end }}
+      {{- end }}
+  {{- end }}
 {{- end }}

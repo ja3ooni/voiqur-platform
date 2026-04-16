@@ -5,8 +5,10 @@ This test file validates the dataset discovery, data preparation, and model trai
 components of the EUVoice AI platform.
 """
 
-import asyncio
 import pytest
+pytest.importorskip("torch")
+
+import asyncio
 import tempfile
 import shutil
 import os

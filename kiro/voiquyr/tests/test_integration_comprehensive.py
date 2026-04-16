@@ -53,26 +53,28 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.auth.AuthManager.get_current_user')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_complete_voice_conversation_flow(self):
             """Test complete voice conversation from audio input to audio output."""
             print("Testing complete voice conversation flow...")
             
             # Mock all voice processing components
-            with patch('src.api.models.VoiceProcessingModels') as mock_models:
+            with patch('src.api.routers.voice_processing.voice_models') as mock_models:
+                mock_models.process_stt = AsyncMock()
+                mock_models.process_llm = AsyncMock()
+                mock_models.process_tts = AsyncMock()
+                mock_models.create_batch_job = AsyncMock()
+                mock_models.get_batch_status = AsyncMock()
                 # Configure STT mock
-                mock_models.return_value.process_stt.return_value = {
+                mock_models.process_stt.return_value = {
                     "text": "Hello, I need help with my account",
                     "confidence": 0.96,
                     "language": "en",
@@ -82,7 +84,7 @@ try:
                 }
                 
                 # Configure LLM mock
-                mock_models.return_value.process_llm.return_value = {
+                mock_models.process_llm.return_value = {
                     "response": "I'd be happy to help you with your account. What specific issue are you experiencing?",
                     "conversation_id": "conv_integration_test",
                     "tokens_used": 28,
@@ -93,7 +95,7 @@ try:
                 }
                 
                 # Configure TTS mock
-                mock_models.return_value.process_tts.return_value = {
+                mock_models.process_tts.return_value = {
                     "audio_data": base64.b64encode(b"synthesized_response_audio").decode(),
                     "audio_format": "wav",
                     "duration_seconds": 4.8,
@@ -154,23 +156,28 @@ try:
             """Test the complete pipeline endpoint."""
             print("Testing pipeline endpoint integration...")
             
-            with patch('src.api.models.VoiceProcessingModels') as mock_models:
+            with patch('src.api.routers.voice_processing.voice_models') as mock_models:
+                mock_models.process_stt = AsyncMock()
+                mock_models.process_llm = AsyncMock()
+                mock_models.process_tts = AsyncMock()
+                mock_models.create_batch_job = AsyncMock()
+                mock_models.get_batch_status = AsyncMock()
                 # Configure pipeline mocks
-                mock_models.return_value.process_stt.return_value = {
+                mock_models.process_stt.return_value = {
                     "text": "What's the weather like today?",
                     "confidence": 0.94,
                     "language": "en",
                     "emotion": {"primary": "curious", "confidence": 0.7}
                 }
                 
-                mock_models.return_value.process_llm.return_value = {
+                mock_models.process_llm.return_value = {
                     "response": "I'd be happy to help you check the weather. Could you please tell me your location?",
                     "language": "en",
                     "intent": "weather_query",
                     "entities": [{"type": "query_type", "value": "weather"}]
                 }
                 
-                mock_models.return_value.process_tts.return_value = {
+                mock_models.process_tts.return_value = {
                     "audio_data": base64.b64encode(b"weather_response_audio").decode(),
                     "audio_format": "wav",
                     "duration_seconds": 5.2
@@ -245,24 +252,29 @@ try:
                 }
             ]
             
-            with patch('src.api.models.VoiceProcessingModels') as mock_models:
+            with patch('src.api.routers.voice_processing.voice_models') as mock_models:
+                mock_models.process_stt = AsyncMock()
+                mock_models.process_llm = AsyncMock()
+                mock_models.process_tts = AsyncMock()
+                mock_models.create_batch_job = AsyncMock()
+                mock_models.get_batch_status = AsyncMock()
                 for test_case in language_tests:
                     # Configure mocks for each language
-                    mock_models.return_value.process_stt.return_value = {
+                    mock_models.process_stt.return_value = {
                         "text": test_case["input_text"],
                         "confidence": 0.93,
                         "language": test_case["language"],
                         "timestamps": [{"start": 0.0, "end": 2.5}]
                     }
                     
-                    mock_models.return_value.process_llm.return_value = {
+                    mock_models.process_llm.return_value = {
                         "response": test_case["expected_response"],
                         "language": test_case["language"],
                         "intent": "greeting",
                         "conversation_id": f"conv_{test_case['language']}"
                     }
                     
-                    mock_models.return_value.process_tts.return_value = {
+                    mock_models.process_tts.return_value = {
                         "audio_data": base64.b64encode(f"audio_{test_case['language']}".encode()).decode(),
                         "audio_format": "wav",
                         "duration_seconds": 3.0,
@@ -306,17 +318,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.auth.AuthManager.get_current_user')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_webhook_voice_processing_integration(self):
             """Test webhook integration with voice processing events."""
@@ -351,10 +360,15 @@ try:
                 webhook_id = webhook_result["webhook_id"]
                 
             # Step 2: Process voice request that should trigger webhooks
-            with patch('src.api.models.VoiceProcessingModels') as mock_models:
+            with patch('src.api.routers.voice_processing.voice_models') as mock_models:
+                mock_models.process_stt = AsyncMock()
+                mock_models.process_llm = AsyncMock()
+                mock_models.process_tts = AsyncMock()
+                mock_models.create_batch_job = AsyncMock()
+                mock_models.get_batch_status = AsyncMock()
                 with patch('src.api.services.webhook_service.WebhookService.publish_event') as mock_publish:
                     # Configure voice processing mocks
-                    mock_models.return_value.process_stt.return_value = {
+                    mock_models.process_stt.return_value = {
                         "text": "Test webhook integration",
                         "confidence": 0.95,
                         "language": "en",
@@ -377,8 +391,14 @@ try:
             mock_deliveries = [
                 {
                     "id": "delivery_1",
-                    "event_type": "transcription.completed",
+                    "webhook_id": webhook_id,
+                    "event_id": "event_1",
+                    "url": "https://example.com/voice-webhook",
+                    "method": "POST",
+                    "headers": {"Content-Type": "application/json"},
+                    "payload": "{}",
                     "status": "delivered",
+                    "attempt_number": 1,
                     "response_status": 200,
                     "created_at": datetime.utcnow().isoformat()
                 }
@@ -508,28 +528,41 @@ try:
             mock_deliveries = [
                 {
                     "id": "delivery_retry_1",
-                    "event_type": "error.occurred",
+                    "webhook_id": webhook_id,
+                    "event_id": "event_1",
+                    "url": "https://example.com/retry-webhook",
+                    "method": "POST",
+                    "headers": {"Content-Type": "application/json"},
+                    "payload": "{}",
                     "status": "failed",
+                    "attempt_number": 1,
                     "response_status": 500,
-                    "attempt": 1,
-                    "next_retry": (datetime.utcnow() + timedelta(seconds=1)).isoformat(),
                     "created_at": datetime.utcnow().isoformat()
                 },
                 {
                     "id": "delivery_retry_2",
-                    "event_type": "error.occurred",
+                    "webhook_id": webhook_id,
+                    "event_id": "event_2",
+                    "url": "https://example.com/retry-webhook",
+                    "method": "POST",
+                    "headers": {"Content-Type": "application/json"},
+                    "payload": "{}",
                     "status": "failed",
+                    "attempt_number": 2,
                     "response_status": 502,
-                    "attempt": 2,
-                    "next_retry": (datetime.utcnow() + timedelta(seconds=2)).isoformat(),
                     "created_at": datetime.utcnow().isoformat()
                 },
                 {
                     "id": "delivery_retry_3",
-                    "event_type": "error.occurred",
+                    "webhook_id": webhook_id,
+                    "event_id": "event_3",
+                    "url": "https://example.com/retry-webhook",
+                    "method": "POST",
+                    "headers": {"Content-Type": "application/json"},
+                    "payload": "{}",
                     "status": "delivered",
+                    "attempt_number": 3,
                     "response_status": 200,
-                    "attempt": 3,
                     "created_at": datetime.utcnow().isoformat()
                 }
             ]
@@ -545,9 +578,9 @@ try:
                 
                 # Verify retry progression
                 deliveries = history_result["deliveries"]
-                assert deliveries[0]["attempt"] == 1
-                assert deliveries[1]["attempt"] == 2
-                assert deliveries[2]["attempt"] == 3
+                assert deliveries[0]["attempt_number"] == 1
+                assert deliveries[1]["attempt_number"] == 2
+                assert deliveries[2]["attempt_number"] == 3
                 assert deliveries[2]["status"] == "delivered"  # Finally succeeded
                 
             print("✓ Webhook retry mechanism test passed")
@@ -558,17 +591,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.auth.AuthManager.get_current_user')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_twilio_voice_integration(self):
             """Test Twilio voice integration workflow."""
@@ -668,18 +698,19 @@ try:
                 "limit": 5
             }
             
-            mock_contact = Mock()
-            mock_contact.id = "contact_123"
-            mock_contact.external_id = "sf_contact_456"
-            mock_contact.first_name = "John"
-            mock_contact.last_name = "Doe"
-            mock_contact.email = "john.doe@example.com"
-            mock_contact.phone = "+353987654321"
-            mock_contact.company = "Example Corp"
-            mock_contact.title = "VP Sales"
-            mock_contact.source = "salesforce"
-            mock_contact.created_date = datetime.utcnow()
-            mock_contact.modified_date = datetime.utcnow()
+            mock_contact = {
+                "id": "contact_123",
+                "external_id": "sf_contact_456",
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john.doe@example.com",
+                "phone": "+353987654321",
+                "company": "Example Corp",
+                "title": "VP Sales",
+                "source": "salesforce",
+                "created_date": datetime.utcnow().isoformat(),
+                "modified_date": datetime.utcnow().isoformat(),
+            }
             
             with patch('src.api.integrations.manager.IntegrationManager.search_contacts') as mock_search:
                 mock_search.return_value = [mock_contact]
@@ -861,17 +892,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.auth.AuthManager.get_current_user')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_customer_support_workflow(self):
             """Test complete customer support workflow."""

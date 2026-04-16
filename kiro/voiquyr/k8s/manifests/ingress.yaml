@@ -1,0 +1,56 @@
+# Requires nginx-ingress-controller + cert-manager in the cluster.
+# Replace hostnames with your actual domains.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: voiquyr
+  namespace: voiquyr
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - secretName: voiquyr-tls
+    hosts:
+    - api.voiquyr.eu
+    - app.voiquyr.eu
+    - command.voiquyr.eu
+  rules:
+  - host: api.voiquyr.eu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api
+            port:
+              number: 8000
+  - host: app.voiquyr.eu
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dashboard
+            port:
+              number: 80
+  - host: command.voiquyr.eu
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: command-center-api
+            port:
+              number: 8001
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: command-center-ui
+            port:
+              number: 80

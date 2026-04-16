@@ -5,7 +5,7 @@ Feature: voiquyr-differentiators
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st, assume
+from hypothesis import given, settings, strategies as st, assume, HealthCheck
 from src.telephony.byoc_adapter import (
     BYOCAdapter,
     SIPTrunk,
@@ -13,9 +13,8 @@ from src.telephony.byoc_adapter import (
 )
 
 
-@pytest.fixture
-def adapter():
-    """Setup BYOC adapter with test trunk."""
+def get_test_adapter():
+    """Create BYOC adapter with test trunk."""
     adapter = BYOCAdapter()
     adapter.register_trunk(SIPTrunk(
         trunk_id="test-trunk",
@@ -35,8 +34,9 @@ def adapter():
     )
 )
 @settings(max_examples=100)
-def test_codec_negotiation_correctness(adapter, offered_codecs):
+def test_codec_negotiation_correctness(offered_codecs):
     """Property 3: SIP codec negotiation correctness."""
+    adapter = get_test_adapter()
     supported_codecs = {"G711u", "G711a", "G722", "Opus"}
     
     # Simulate codec negotiation
@@ -56,8 +56,9 @@ def test_codec_negotiation_correctness(adapter, offered_codecs):
 # Validates: Requirements 2.4
 @given(srtp_in_offer=st.booleans())
 @settings(max_examples=100)
-def test_srtp_negotiation_invariant(adapter, srtp_in_offer):
+def test_srtp_negotiation_invariant(srtp_in_offer):
     """Property 4: SRTP negotiation invariant."""
+    adapter = get_test_adapter()
     # Simulate SRTP negotiation
     srtp_negotiated = srtp_in_offer
     
@@ -71,8 +72,9 @@ def test_srtp_negotiation_invariant(adapter, srtp_in_offer):
     failure_type=st.sampled_from(["auth", "network", "codec_mismatch"])
 )
 @settings(max_examples=100)
-def test_registration_error_classification(adapter, failure_type):
+def test_registration_error_classification(failure_type):
     """Property 5: SIP trunk registration error classification."""
+    adapter = get_test_adapter()
     # Simulate registration failure
     error_types = {"auth", "network", "codec_mismatch"}
     

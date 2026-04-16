@@ -339,3 +339,25 @@ class AuthManager:
     def verify_password(self, password: str, hashed: str) -> bool:
         """Verify password against hash."""
         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+
+# ---------------------------------------------------------------------------
+# Module-level dependency function — can be overridden via
+# app.dependency_overrides[get_current_user] = lambda: mock_user
+# ---------------------------------------------------------------------------
+_default_auth_manager: Optional["AuthManager"] = None
+
+
+def _get_default_auth_manager() -> "AuthManager":
+    global _default_auth_manager
+    if _default_auth_manager is None:
+        _default_auth_manager = AuthManager(AuthConfig())
+    return _default_auth_manager
+
+
+async def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> User:
+    """Module-level dependency for getting the current authenticated user."""
+    return await _get_default_auth_manager().get_current_user(request, credentials)

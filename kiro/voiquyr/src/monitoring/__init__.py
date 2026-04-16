@@ -28,6 +28,14 @@ from .resource_tracker import (
     set_resource_tracker
 )
 
+from .monitoring_service import (
+    MonitoringService,
+    MonitoringStatus,
+    SystemHealthSummary,
+    get_monitoring_service,
+    set_monitoring_service,
+)
+
 __all__ = [
     # Performance Monitor
     "PerformanceMonitor",
@@ -48,5 +56,12 @@ __all__ = [
     "ResourceType",
     "CostCategory",
     "get_resource_tracker",
-    "set_resource_tracker"
+    "set_resource_tracker",
+
+    # Monitoring Service
+    "MonitoringService",
+    "MonitoringStatus",
+    "SystemHealthSummary",
+    "get_monitoring_service",
+    "set_monitoring_service",
 ]

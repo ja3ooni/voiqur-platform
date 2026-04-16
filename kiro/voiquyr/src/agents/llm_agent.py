@@ -949,9 +949,10 @@ Be culturally sensitive and adapt your responses to regional contexts."""
                 
         except Exception as e:
             self.logger.error(f"Agent coordination failed: {e}")
-            return f"Failed to coordinate agents: {str(e)}"   
- async def process_message(self, text: str, session_id: Optional[str] = None, 
-                            user_id: Optional[str] = None, language: str = "en") -> Dict[str, Any]:
+            return f"Failed to coordinate agents: {str(e)}"
+
+    async def process_message(self, text: str, session_id: Optional[str] = None,
+                              user_id: Optional[str] = None, language: str = "en") -> Dict[str, Any]:
         """Process incoming message and generate response"""
         try:
             start_time = time.time()

@@ -18,7 +18,7 @@ from datetime import datetime
 import io
 import base64
 
-from ..auth import AuthManager, User
+from ..auth import AuthManager, User, get_current_user
 from ..models import VoiceProcessingModels
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class BatchProcessingResponse(BaseModel):
 @router.post("/stt", response_model=STTResponse)
 async def speech_to_text(
     request: STTRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Convert speech to text using STT models.
@@ -169,6 +169,8 @@ async def speech_to_text(
             timestamps=result["timestamps"]
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"STT processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"STT processing failed: {str(e)}")
@@ -180,7 +182,7 @@ async def speech_to_text_file(
     language: str = "auto",
     accent: Optional[str] = None,
     enable_emotion: bool = False,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Convert uploaded audio file to text.
@@ -222,6 +224,8 @@ async def speech_to_text_file(
             timestamps=result["timestamps"]
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"STT file processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"STT file processing failed: {str(e)}")
@@ -231,7 +235,7 @@ async def speech_to_text_file(
 @router.post("/llm", response_model=LLMResponse)
 async def language_model_processing(
     request: LLMRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Process text with language model for dialog management and reasoning.
@@ -267,6 +271,8 @@ async def language_model_processing(
             tool_calls=result.get("tool_calls")
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LLM processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"LLM processing failed: {str(e)}")
@@ -276,7 +282,7 @@ async def language_model_processing(
 @router.post("/tts", response_model=TTSResponse)
 async def text_to_speech(
     request: TTSRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Convert text to speech with voice cloning and emotion support.
@@ -312,6 +318,8 @@ async def text_to_speech(
             sample_rate=result["sample_rate"]
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"TTS processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"TTS processing failed: {str(e)}")
@@ -320,7 +328,7 @@ async def text_to_speech(
 @router.get("/tts/audio/{request_id}")
 async def get_tts_audio(
     request_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Stream TTS audio output directly.
@@ -344,6 +352,8 @@ async def get_tts_audio(
             headers={"Content-Disposition": f"attachment; filename=tts_{request_id}.wav"}
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Audio streaming failed: {e}")
         raise HTTPException(status_code=500, detail=f"Audio streaming failed: {str(e)}")
@@ -356,7 +366,7 @@ async def voice_processing_pipeline(
     response_language: str = "auto",
     voice_id: Optional[str] = None,
     enable_emotion: bool = False,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Complete voice processing pipeline: STT → LLM → TTS.
@@ -415,6 +425,8 @@ async def voice_processing_pipeline(
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Pipeline processing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Pipeline processing failed: {str(e)}")
@@ -424,7 +436,7 @@ async def voice_processing_pipeline(
 @router.post("/batch", response_model=BatchProcessingResponse)
 async def create_batch_job(
     request: BatchProcessingRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create batch processing job for multiple files.
@@ -452,6 +464,8 @@ async def create_batch_job(
             created_at=datetime.utcnow()
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Batch job creation failed: {e}")
         raise HTTPException(status_code=500, detail=f"Batch job creation failed: {str(e)}")
@@ -460,7 +474,7 @@ async def create_batch_job(
 @router.get("/batch/{batch_id}")
 async def get_batch_status(
     batch_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get batch processing job status and results.
@@ -473,6 +487,8 @@ async def get_batch_status(
         
         return status
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Batch status retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Batch status retrieval failed: {str(e)}")
@@ -530,6 +546,8 @@ async def websocket_stt(websocket: WebSocket):
                 
     except WebSocketDisconnect:
         logger.info(f"STT WebSocket session disconnected: {session_id}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"STT WebSocket error: {e}")
         await websocket.send_text(json.dumps({
@@ -582,6 +600,8 @@ async def websocket_tts(websocket: WebSocket):
                 
     except WebSocketDisconnect:
         logger.info(f"TTS WebSocket session disconnected: {session_id}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"TTS WebSocket error: {e}")
         await websocket.send_text(json.dumps({
@@ -627,6 +647,8 @@ async def websocket_pipeline(websocket: WebSocket):
                 
     except WebSocketDisconnect:
         logger.info(f"Pipeline WebSocket session disconnected: {session_id}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Pipeline WebSocket error: {e}")
         await websocket.send_text(json.dumps({
@@ -683,5 +705,7 @@ async def voice_processing_info():
             "eu_hosting": True,
             "data_residency": "EU/EEA only",
             "encryption": "AES-256"
-        }
+        },
+        "message": "EUVoice AI Voice Processing API is operational",
+        "available_services": ["stt", "llm", "tts", "pipeline", "batch"]
     }

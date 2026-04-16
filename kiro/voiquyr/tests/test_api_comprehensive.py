@@ -216,17 +216,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.routers.voice_processing.AuthManager')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value.get_current_user.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_voice_processing_info(self):
             """Test voice processing information endpoint."""
@@ -468,17 +465,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.routers.webhooks.AuthManager')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value.get_current_user.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_webhook_registration(self):
             """Test webhook registration."""
@@ -518,24 +512,46 @@ try:
             mock_webhooks = [
                 {
                     "id": "webhook_1",
+                    "user_id": "test-user-123",
                     "name": "Conversation Events",
                     "url": "https://example.com/webhook1",
+                    "method": "POST",
+                    "filters": {"event_types": ["conversation.started"]},
+                    "retry_policy": {"max_attempts": 3, "initial_delay": 1, "max_delay": 60, "backoff_multiplier": 2.0},
+                    "security": {},
                     "status": "active",
-                    "created_at": datetime.utcnow().isoformat()
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "total_deliveries": 0,
+                    "successful_deliveries": 0,
+                    "failed_deliveries": 0,
+                    "data_residency": "eu",
+                    "gdpr_compliant": True,
                 },
                 {
-                    "id": "webhook_2", 
+                    "id": "webhook_2",
+                    "user_id": "test-user-123",
                     "name": "STT Events",
                     "url": "https://example.com/webhook2",
+                    "method": "POST",
+                    "filters": {"event_types": ["transcription.completed"]},
+                    "retry_policy": {"max_attempts": 3, "initial_delay": 1, "max_delay": 60, "backoff_multiplier": 2.0},
+                    "security": {},
                     "status": "active",
-                    "created_at": datetime.utcnow().isoformat()
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "total_deliveries": 0,
+                    "successful_deliveries": 0,
+                    "failed_deliveries": 0,
+                    "data_residency": "eu",
+                    "gdpr_compliant": True,
                 }
             ]
             
             with patch('src.api.services.webhook_service.WebhookService.list_webhooks') as mock_list:
                 mock_list.return_value = (mock_webhooks, 2)
                 
-                response = self.client.get("/api/v1/webhooks/")
+                response = self.client.get("/api/v1/webhooks/list")
                 assert response.status_code == 200
                 
                 result = response.json()
@@ -557,12 +573,14 @@ try:
                 }
             }
             
-            mock_delivery = Mock()
-            mock_delivery.id = "delivery_123"
-            mock_delivery.status = "delivered"
-            mock_delivery.response_status = 200
-            mock_delivery.duration_ms = 150
-            mock_delivery.error_message = None
+            from types import SimpleNamespace
+            mock_delivery = SimpleNamespace(
+                id="delivery_123",
+                status="delivered",
+                response_status=200,
+                duration_ms=150,
+                error_message=None,
+            )
             
             with patch('src.api.services.webhook_service.WebhookService.test_webhook') as mock_test:
                 mock_test.return_value = mock_delivery
@@ -584,15 +602,27 @@ try:
             mock_deliveries = [
                 {
                     "id": "delivery_1",
-                    "event_type": "conversation.started",
+                    "webhook_id": webhook_id,
+                    "event_id": "event_1",
+                    "url": "https://example.com/webhook",
+                    "method": "POST",
+                    "headers": {"Content-Type": "application/json"},
+                    "payload": "{}",
                     "status": "delivered",
+                    "attempt_number": 1,
                     "response_status": 200,
                     "created_at": datetime.utcnow().isoformat()
                 },
                 {
                     "id": "delivery_2",
-                    "event_type": "transcription.completed", 
+                    "webhook_id": webhook_id,
+                    "event_id": "event_2",
+                    "url": "https://example.com/webhook",
+                    "method": "POST",
+                    "headers": {"Content-Type": "application/json"},
+                    "payload": "{}",
                     "status": "failed",
+                    "attempt_number": 1,
                     "response_status": 500,
                     "created_at": datetime.utcnow().isoformat()
                 }
@@ -667,17 +697,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
-            
-            # Mock authentication
-            self.mock_auth_patcher = patch('src.api.routers.integrations.AuthManager')
-            self.mock_auth = self.mock_auth_patcher.start()
-            self.mock_auth.return_value.get_current_user.return_value = TEST_USER
             
         def teardown_method(self):
             """Clean up test environment."""
-            self.mock_auth_patcher.stop()
+            self.app.dependency_overrides.clear()
             
         def test_integration_creation(self):
             """Test integration creation."""
@@ -858,7 +885,7 @@ try:
             ]
             
             with patch('src.api.integrations.manager.IntegrationManager.search_contacts') as mock_search:
-                mock_search.return_value = [Mock(**contact) for contact in mock_contacts]
+                mock_search.return_value = mock_contacts
                 
                 response = self.client.post(f"/api/v1/integrations/{integration_id}/contacts/search", json=search_request)
                 assert response.status_code == 200
@@ -1084,8 +1111,14 @@ try:
         
         def setup_method(self):
             """Set up test environment."""
+            from src.api.auth import get_current_user as _get_current_user
             self.app = create_app(TEST_CONFIG)
+            self.app.dependency_overrides[_get_current_user] = lambda: TEST_USER
             self.client = TestClient(self.app)
+            
+        def teardown_method(self):
+            """Clean up test environment."""
+            self.app.dependency_overrides.clear()
             
         def test_404_handling(self):
             """Test 404 error handling."""

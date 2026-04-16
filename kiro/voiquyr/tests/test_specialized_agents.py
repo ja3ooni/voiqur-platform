@@ -4,6 +4,9 @@ Test script for specialized feature agents
 Tests the Emotion, Accent, Lip Sync, and Arabic specialist agents
 """
 
+import pytest
+pytest.importorskip("torch")
+
 import asyncio
 import numpy as np
 import logging

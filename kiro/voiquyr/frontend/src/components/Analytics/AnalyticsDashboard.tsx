@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -53,6 +53,12 @@ const AnalyticsDashboard: React.FC = () => {
   const { isLoading, error, lastUpdated } = useSelector((state: RootState) => state.analytics);
   const [tabValue, setTabValue] = React.useState(0);
 
+  const handleRefreshData = useCallback(() => {
+    dispatch(fetchPerformanceMetrics() as any);
+    dispatch(fetchUserAnalytics() as any);
+    dispatch(fetchSystemHealth() as any);
+  }, [dispatch]);
+
   useEffect(() => {
     // Initial data fetch
     handleRefreshData();
@@ -64,12 +70,6 @@ const AnalyticsDashboard: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [dispatch, handleRefreshData]);
-
-  const handleRefreshData = () => {
-    dispatch(fetchPerformanceMetrics() as any);
-    dispatch(fetchUserAnalytics() as any);
-    dispatch(fetchSystemHealth() as any);
-  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

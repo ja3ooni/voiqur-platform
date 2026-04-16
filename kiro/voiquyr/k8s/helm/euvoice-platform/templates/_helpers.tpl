@@ -66,7 +66,7 @@ Create the name of the service account to use
 Generate image name with registry
 */}}
 {{- define "euvoice-platform.image" -}}
-{{- $registry := .Values.global.imageRegistry -}}
+{{- $registry := $.Values.global.imageRegistry -}}
 {{- $repository := .repository -}}
 {{- $tag := .tag | default "latest" -}}
 {{- if $registry }}

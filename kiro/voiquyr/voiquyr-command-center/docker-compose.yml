@@ -6,7 +6,7 @@ services:
     container_name: voiquyr-edge-node
     restart: always
     ports:
-      - "8000:8000"
+      - "9000:9000"
     environment:
       - APP_ENV=production
       - REGION_ID=eu-frankfurt-1

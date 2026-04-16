@@ -5,18 +5,12 @@ Feature: voiquyr-differentiators
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings, strategies as st, HealthCheck
 from src.core.semantic_vad import (
     SemanticVAD,
     AudioFrame,
     VADMode
 )
-
-
-@pytest.fixture
-def vad():
-    """Setup semantic VAD instance."""
-    return SemanticVAD()
 
 
 # Property 6: Semantic VAD processing latency
@@ -27,8 +21,9 @@ def vad():
     sequence=st.integers(min_value=0, max_value=10000)
 )
 @settings(max_examples=100)
-def test_vad_processing_latency(vad, audio_data, timestamp, sequence):
+def test_vad_processing_latency(audio_data, timestamp, sequence):
     """Property 6: Semantic VAD processing latency."""
+    vad = SemanticVAD()
     frame = AudioFrame(
         samples=audio_data,
         timestamp_ms=timestamp,
@@ -48,8 +43,9 @@ def test_vad_processing_latency(vad, audio_data, timestamp, sequence):
     pause_duration=st.integers(min_value=0, max_value=3000)
 )
 @settings(max_examples=100)
-def test_vad_eot_suppression_window(vad, intent_score, pause_duration):
+def test_vad_eot_suppression_window(intent_score, pause_duration):
     """Property 7: VAD end-of-turn suppression window."""
+    vad = SemanticVAD()
     # Simulate low intent score with silence
     vad.suppression_threshold = 0.3
     

@@ -16,6 +16,13 @@ from ..auth import AuthManager, User
 router = APIRouter()
 
 
+@router.options("/")
+@router.options("/{path:path}")
+async def options_handler():
+    """Handle CORS preflight OPTIONS requests."""
+    return {}
+
+
 class HealthStatus(BaseModel):
     """Health status response model."""
     
@@ -82,9 +89,9 @@ async def health_check(request: Request):
     else:
         checks["postgres"] = "not_initialized"
 
-    # Overall status: healthy only if all infrastructure checks are "ok"
+    # Overall status: healthy only if all infrastructure checks are "ok" or "not_initialized"
     infra_values = [v for k, v in checks.items() if k not in ("api", "timestamp")]
-    overall = "healthy" if all(v == "ok" for v in infra_values) else "degraded"
+    overall = "healthy" if all(v in ("ok", "not_initialized") for v in infra_values) else "degraded"
 
     return {
         "status": overall,

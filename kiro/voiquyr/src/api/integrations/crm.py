@@ -20,10 +20,8 @@ from ..utils.webhook_publisher import get_global_publisher
 class SalesforceConfig(IntegrationConfig):
     """Salesforce-specific configuration."""
     
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.CRM
-        self.provider = "salesforce"
+    type: IntegrationType = IntegrationType.CRM
+    provider: str = "salesforce"
     
     # Salesforce OAuth settings
     client_id: str = ""
@@ -58,10 +56,8 @@ class SalesforceConfig(IntegrationConfig):
 class SAPConfig(IntegrationConfig):
     """SAP CRM-specific configuration."""
     
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.CRM
-        self.provider = "sap"
+    type: IntegrationType = IntegrationType.CRM
+    provider: str = "sap"
     
     # SAP connection settings
     server_url: str = ""
@@ -376,23 +372,31 @@ class SalesforceIntegration(BaseIntegration):
             if response["success"]:
                 contact_id = response["data"]["id"]
                 
-                # Fetch the created contact
-                contacts = await self.search_contacts()
-                for contact in contacts:
-                    if contact.id == contact_id:
-                        # Emit contact created event
-                        if self.webhook_publisher:
-                            await self.webhook_publisher.publish_custom_event(
-                                event_type="crm.contact.created",
-                                data={
-                                    "contact_id": contact_id,
-                                    "source": "salesforce",
-                                    "contact_data": contact_data
-                                },
-                                source="salesforce_integration"
-                            )
-                        
-                        return contact
+                # Build contact from the provided data and the new ID
+                contact = CRMContact(
+                    {
+                        "id": contact_id,
+                        **contact_data,
+                    },
+                    source="salesforce",
+                )
+                
+                # Emit contact created event
+                if self.webhook_publisher:
+                    try:
+                        await self.webhook_publisher.publish_custom_event(
+                            event_type="crm.contact.created",
+                            data={
+                                "contact_id": contact_id,
+                                "source": "salesforce",
+                                "contact_data": contact_data
+                            },
+                            source="salesforce_integration"
+                        )
+                    except Exception:
+                        pass  # Don't fail contact creation if event publishing fails
+                
+                return contact
             
             return None
             

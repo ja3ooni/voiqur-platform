@@ -372,7 +372,7 @@ class GDPRValidator:
         ]
         
         api_files = list(Path(project_path).rglob("*api*.py"))
-        api_files.extend(list(Path(project_path).rglob("*router*.py"))
+        api_files.extend(list(Path(project_path).rglob("*router*.py")))
         
         implemented_rights = set()
         

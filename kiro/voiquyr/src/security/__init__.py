@@ -26,17 +26,16 @@ from .audit_system import (
     audit_action
 )
 
-# Temporarily commented out due to import issues
-# from .data_protection import (
-#     DataProtectionSystem,
-#     DataSubject,
-#     DataProcessingRecord,
-#     DataType,
-#     ProtectionLevel,
-#     ConsentStatus,
-#     get_data_protection_system,
-#     set_data_protection_system
-# )
+from .data_protection import (
+    DataProtectionSystem,
+    DataSubject,
+    DataProcessingRecord,
+    DataType,
+    ProtectionLevel,
+    ConsentStatus,
+    get_data_protection_system,
+    set_data_protection_system
+)
 
 __all__ = [
     # Security Scanner

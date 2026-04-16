@@ -3,6 +3,9 @@ Test script for LLM Agent implementation
 Tests dialog management, tool calling, and integration capabilities
 """
 
+import pytest
+pytest.importorskip("torch")
+
 import asyncio
 import logging
 import sys

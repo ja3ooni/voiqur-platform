@@ -1,0 +1,168 @@
+{{- if .Values.commandCenterApi.enabled }}
+# ── Command Center API Deployment ─────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-cc-api
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: command-center-api
+spec:
+  replicas: {{ .Values.commandCenterApi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "euvoice-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: command-center-api
+  template:
+    metadata:
+      labels:
+        {{- include "euvoice-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: command-center-api
+    spec:
+      {{- include "euvoice-platform.podSecurityContext" . | nindent 6 }}
+      {{- include "euvoice-platform.affinity" . | nindent 6 }}
+      containers:
+      - name: cc-api
+        image: {{ include "euvoice-platform.image" (dict "repository" .Values.commandCenterApi.image.repository "tag" .Values.commandCenterApi.image.tag "Values" .Values) }}
+        imagePullPolicy: {{ .Values.commandCenterApi.image.pullPolicy }}
+        {{- include "euvoice-platform.securityContext" . | nindent 8 }}
+        ports:
+        - name: http
+          containerPort: 8001
+          protocol: TCP
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "euvoice-platform.fullname" . }}-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "euvoice-platform.fullname" . }}-secrets
+              key: redis-url
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "euvoice-platform.fullname" . }}-secrets
+              key: jwt-secret-key
+        - name: DEEPGRAM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "euvoice-platform.fullname" . }}-secrets
+              key: deepgram-api-key
+              optional: true
+        - name: ELEVENLABS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "euvoice-platform.fullname" . }}-secrets
+              key: elevenlabs-api-key
+              optional: true
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        {{- include "euvoice-platform.resources" .Values.commandCenterApi | nindent 8 }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-cc-api
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: command-center-api
+spec:
+  type: {{ .Values.commandCenterApi.service.type }}
+  ports:
+  - port: {{ .Values.commandCenterApi.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "euvoice-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: command-center-api
+{{- end }}
+---
+{{- if .Values.commandCenterUi.enabled }}
+# ── Command Center UI Deployment ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-cc-ui
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: command-center-ui
+spec:
+  replicas: {{ .Values.commandCenterUi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "euvoice-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: command-center-ui
+  template:
+    metadata:
+      labels:
+        {{- include "euvoice-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: command-center-ui
+    spec:
+      {{- include "euvoice-platform.podSecurityContext" . | nindent 6 }}
+      {{- include "euvoice-platform.affinity" . | nindent 6 }}
+      containers:
+      - name: cc-ui
+        image: {{ include "euvoice-platform.image" (dict "repository" .Values.commandCenterUi.image.repository "tag" .Values.commandCenterUi.image.tag "Values" .Values) }}
+        imagePullPolicy: {{ .Values.commandCenterUi.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        {{- include "euvoice-platform.resources" .Values.commandCenterUi | nindent 8 }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-cc-ui
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: command-center-ui
+spec:
+  type: {{ .Values.commandCenterUi.service.type }}
+  ports:
+  - port: {{ .Values.commandCenterUi.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "euvoice-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: command-center-ui
+{{- end }}

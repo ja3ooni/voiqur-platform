@@ -4,6 +4,18 @@ Core Module
 Core processing pipeline and system integration components for the EUVoice AI Platform.
 """
 
+from .messaging import MessageRouter, MessageBus
+
+from .knowledge_base import (
+    SharedKnowledgeBase,
+    KnowledgeItem,
+    KnowledgeType,
+    AccessLevel,
+    ConflictResolutionStrategy,
+    KnowledgeConflict,
+    KnowledgeSubscription,
+)
+
 from .processing_pipeline import (
     ProcessingPipeline,
     ProcessingRequest,

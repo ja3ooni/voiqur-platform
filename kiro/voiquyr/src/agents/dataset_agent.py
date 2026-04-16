@@ -443,7 +443,7 @@ class DatasetFilter:
                     continue
             
             # Check quality score
-            quality_score = await self.quality_assessor.assess_quality(dataset)
+            quality_score = dataset.quality_score if dataset.quality_score > 0 else await self.quality_assessor.assess_quality(dataset)
             dataset.quality_score = quality_score
             
             if quality_score < self.min_quality_score:

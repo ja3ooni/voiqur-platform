@@ -3,6 +3,9 @@ Test script for TTS Agent implementation
 Tests core functionality including synthesis, voice cloning, emotion-aware synthesis, and streaming
 """
 
+import pytest
+pytest.importorskip("torch")
+
 import asyncio
 import numpy as np
 import base64

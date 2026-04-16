@@ -5,7 +5,7 @@ Feature: voiquyr-differentiators
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st, assume
+from hypothesis import given, settings, strategies as st, assume, HealthCheck
 from src.core.flash_mode import FlashMode, SpeculativeStatus
 
 
@@ -15,25 +15,15 @@ class MockLLMAgent:
         return f"Response to: {transcript}"
 
 
-@pytest.fixture
-def flash_mode():
-    """Setup flash mode instance."""
-    return FlashMode()
-
-
-@pytest.fixture
-def llm_agent():
-    """Setup mock LLM agent."""
-    return MockLLMAgent()
-
-
 # Property 8: Flash_Mode speculative hit reuse
 # Validates: Requirements 4.3
 @given(transcript=st.text(min_size=10, max_size=100))
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_speculative_hit_reuse(flash_mode, llm_agent, transcript):
+async def test_speculative_hit_reuse(transcript):
     """Property 8: Flash_Mode speculative hit reuse."""
+    flash_mode = FlashMode()
+    llm_agent = MockLLMAgent()
     call_id = "test-call-001"
     tenant_id = "tenant-001"
     
@@ -66,10 +56,12 @@ async def test_speculative_hit_reuse(flash_mode, llm_agent, transcript):
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_speculative_miss_discard(flash_mode, llm_agent, partial, final):
+async def test_speculative_miss_discard(partial, final):
     """Property 9: Flash_Mode speculative miss discard."""
     assume(partial != final)
     
+    flash_mode = FlashMode()
+    llm_agent = MockLLMAgent()
     call_id = "test-call-002"
     tenant_id = "tenant-001"
     
@@ -100,8 +92,10 @@ async def test_speculative_miss_discard(flash_mode, llm_agent, partial, final):
 @given(confidence=st.floats(min_value=0.0, max_value=1.0))
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_trigger_threshold(flash_mode, llm_agent, confidence):
+async def test_trigger_threshold(confidence):
     """Property 10: Flash_Mode trigger threshold."""
+    flash_mode = FlashMode()
+    llm_agent = MockLLMAgent()
     call_id = f"test-call-{confidence}"
     tenant_id = "tenant-001"
     
@@ -124,8 +118,9 @@ async def test_trigger_threshold(flash_mode, llm_agent, confidence):
 # Validates: Requirements 4.7
 @given(hit_miss_sequence=st.lists(st.booleans(), min_size=1, max_size=200))
 @settings(max_examples=100)
-def test_hit_rate_logging_accuracy(flash_mode, hit_miss_sequence):
+def test_hit_rate_logging_accuracy(hit_miss_sequence):
     """Property 11: Flash_Mode hit rate logging."""
+    flash_mode = FlashMode()
     # Reset counters
     flash_mode.hit_count = 0
     flash_mode.miss_count = 0

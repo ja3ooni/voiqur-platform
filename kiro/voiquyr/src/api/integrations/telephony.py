@@ -20,10 +20,8 @@ from ..utils.webhook_publisher import get_global_publisher
 class TwilioConfig(IntegrationConfig):
     """Twilio-specific configuration."""
     
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.TELEPHONY
-        self.provider = "twilio"
+    type: IntegrationType = IntegrationType.TELEPHONY
+    provider: str = "twilio"
     
     # Twilio-specific settings
     account_sid: str = ""

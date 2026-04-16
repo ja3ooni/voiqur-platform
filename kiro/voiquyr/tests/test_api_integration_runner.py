@@ -123,87 +123,86 @@ try:
         """Test voice processing API endpoints."""
         print("Testing Voice Processing API...")
         
+        from src.api.auth import get_current_user as _get_current_user
         app = create_app(TEST_CONFIG)
+        app.dependency_overrides[_get_current_user] = lambda: TEST_USER
         client = TestClient(app)
         
-        # Mock authentication
-        with patch('src.api.routers.voice_processing.AuthManager') as mock_auth:
-            mock_auth.return_value.get_current_user.return_value = TEST_USER
+        # Test voice processing info
+        response = client.get("/api/v1/voice/")
+        assert response.status_code == 200
+        data = response.json()
+        assert "service" in data
+        assert "capabilities" in data
+        print("  ✓ Voice processing info endpoint")
+        
+        # Test STT endpoint with mocked processing
+        with patch('src.api.models.VoiceProcessingModels.process_stt') as mock_stt:
+            mock_stt.return_value = {
+                "text": "Hello, how can I help you?",
+                "confidence": 0.95,
+                "language": "en",
+                "timestamps": [{"start": 0.0, "end": 2.5}]
+            }
             
-            # Test voice processing info
-            response = client.get("/api/v1/voice/")
+            stt_request = {
+                "audio_data": base64.b64encode(b"fake_audio_data").decode(),
+                "language": "en"
+            }
+            
+            response = client.post("/api/v1/voice/stt", json=stt_request)
             assert response.status_code == 200
             data = response.json()
-            assert "service" in data
-            assert "capabilities" in data
-            print("  ✓ Voice processing info endpoint")
-            
-            # Test STT endpoint with mocked processing
-            with patch('src.api.models.VoiceProcessingModels.process_stt') as mock_stt:
-                mock_stt.return_value = {
-                    "text": "Hello, how can I help you?",
-                    "confidence": 0.95,
-                    "language": "en",
-                    "timestamps": [{"start": 0.0, "end": 2.5}]
-                }
-                
-                stt_request = {
-                    "audio_data": base64.b64encode(b"fake_audio_data").decode(),
-                    "language": "en"
-                }
-                
-                response = client.post("/api/v1/voice/stt", json=stt_request)
-                assert response.status_code == 200
-                data = response.json()
-                assert data["text"] == "Hello, how can I help you?"
-                assert data["confidence"] == 0.95
-                print("  ✓ STT endpoint")
-            
-            # Test LLM endpoint with mocked processing
-            with patch('src.api.models.VoiceProcessingModels.process_llm') as mock_llm:
-                mock_llm.return_value = {
-                    "response": "I'd be happy to help you!",
-                    "conversation_id": "conv_123",
-                    "tokens_used": 25,
-                    "language": "en",
-                    "intent": "greeting"
-                }
-                
-                llm_request = {
-                    "text": "Hello, I need help",
-                    "language": "en"
-                }
-                
-                response = client.post("/api/v1/voice/llm", json=llm_request)
-                assert response.status_code == 200
-                data = response.json()
-                assert data["response"] == "I'd be happy to help you!"
-                assert data["intent"] == "greeting"
-                print("  ✓ LLM endpoint")
-            
-            # Test TTS endpoint with mocked processing
-            with patch('src.api.models.VoiceProcessingModels.process_tts') as mock_tts:
-                mock_tts.return_value = {
-                    "audio_data": base64.b64encode(b"fake_audio_output").decode(),
-                    "audio_format": "wav",
-                    "duration_seconds": 3.2,
-                    "voice_id": "voice_en_female_1",
-                    "language": "en",
-                    "sample_rate": 22050
-                }
-                
-                tts_request = {
-                    "text": "Thank you for your question.",
-                    "language": "en"
-                }
-                
-                response = client.post("/api/v1/voice/tts", json=tts_request)
-                assert response.status_code == 200
-                data = response.json()
-                assert data["audio_format"] == "wav"
-                assert data["duration_seconds"] == 3.2
-                print("  ✓ TTS endpoint")
+            assert data["text"] == "Hello, how can I help you?"
+            assert data["confidence"] == 0.95
+            print("  ✓ STT endpoint")
         
+        # Test LLM endpoint with mocked processing
+        with patch('src.api.models.VoiceProcessingModels.process_llm') as mock_llm:
+            mock_llm.return_value = {
+                "response": "I'd be happy to help you!",
+                "conversation_id": "conv_123",
+                "tokens_used": 25,
+                "language": "en",
+                "intent": "greeting"
+            }
+            
+            llm_request = {
+                "text": "Hello, I need help",
+                "language": "en"
+            }
+            
+            response = client.post("/api/v1/voice/llm", json=llm_request)
+            assert response.status_code == 200
+            data = response.json()
+            assert data["response"] == "I'd be happy to help you!"
+            assert data["intent"] == "greeting"
+            print("  ✓ LLM endpoint")
+        
+        # Test TTS endpoint with mocked processing
+        with patch('src.api.models.VoiceProcessingModels.process_tts') as mock_tts:
+            mock_tts.return_value = {
+                "audio_data": base64.b64encode(b"fake_audio_output").decode(),
+                "audio_format": "wav",
+                "duration_seconds": 3.2,
+                "voice_id": "voice_en_female_1",
+                "language": "en",
+                "sample_rate": 22050
+            }
+            
+            tts_request = {
+                "text": "Thank you for your question.",
+                "language": "en"
+            }
+            
+            response = client.post("/api/v1/voice/tts", json=tts_request)
+            assert response.status_code == 200
+            data = response.json()
+            assert data["audio_format"] == "wav"
+            assert data["duration_seconds"] == 3.2
+            print("  ✓ TTS endpoint")
+        
+        app.dependency_overrides.clear()
         print("✅ Voice Processing API tests passed")
         
     
@@ -211,60 +210,70 @@ try:
         """Test webhook system functionality."""
         print("Testing Webhook System...")
         
+        from src.api.auth import get_current_user as _get_current_user
         app = create_app(TEST_CONFIG)
+        app.dependency_overrides[_get_current_user] = lambda: TEST_USER
         client = TestClient(app)
         
-        # Mock authentication
-        with patch('src.api.routers.webhooks.AuthManager') as mock_auth:
-            mock_auth.return_value.get_current_user.return_value = TEST_USER
+        # Test webhook registration
+        webhook_request = {
+            "name": "Test Webhook",
+            "description": "Test webhook for events",
+            "url": "https://example.com/webhook",
+            "method": "POST",
+            "event_types": ["conversation.started", "conversation.ended"],
+            "filters": {"language": "en"}
+        }
+        
+        with patch('src.api.services.webhook_service.WebhookService.register_webhook') as mock_register:
+            mock_register.return_value = "webhook_123"
             
-            # Test webhook registration
-            webhook_request = {
-                "name": "Test Webhook",
-                "description": "Test webhook for events",
-                "url": "https://example.com/webhook",
-                "method": "POST",
-                "event_types": ["conversation.started", "conversation.ended"],
-                "filters": {"language": "en"}
-            }
-            
-            with patch('src.api.services.webhook_service.WebhookService.register_webhook') as mock_register:
-                mock_register.return_value = "webhook_123"
-                
-                response = client.post("/api/v1/webhooks/", json=webhook_request)
-                assert response.status_code == 200
-                result = response.json()
-                assert "webhook_id" in result
-                print("  ✓ Webhook registration")
-            
-            # Test webhook listing
-            mock_webhooks = [
-                {
-                    "id": "webhook_1",
-                    "name": "Test Webhook",
-                    "url": "https://example.com/webhook",
-                    "status": "active",
-                    "created_at": datetime.utcnow().isoformat()
-                }
-            ]
-            
-            with patch('src.api.services.webhook_service.WebhookService.list_webhooks') as mock_list:
-                mock_list.return_value = (mock_webhooks, 1)
-                
-                response = client.get("/api/v1/webhooks/")
-                assert response.status_code == 200
-                result = response.json()
-                assert result["total"] == 1
-                print("  ✓ Webhook listing")
-            
-            # Test event types info
-            response = client.get("/api/v1/webhooks/events/types")
+            response = client.post("/api/v1/webhooks/", json=webhook_request)
             assert response.status_code == 200
             result = response.json()
-            assert "event_types" in result
-            assert "categories" in result
-            print("  ✓ Event types info")
+            assert "webhook_id" in result
+            print("  ✓ Webhook registration")
         
+        # Test webhook listing
+        mock_webhooks = [
+            {
+                "id": "webhook_1",
+                "user_id": "test-user-123",
+                "name": "Test Webhook",
+                "url": "https://example.com/webhook",
+                "method": "POST",
+                "filters": {"event_types": ["conversation.started"]},
+                "retry_policy": {"max_attempts": 3, "initial_delay": 1, "max_delay": 60, "backoff_multiplier": 2.0},
+                "security": {},
+                "status": "active",
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+                "total_deliveries": 0,
+                "successful_deliveries": 0,
+                "failed_deliveries": 0,
+                "data_residency": "eu",
+                "gdpr_compliant": True,
+            }
+        ]
+        
+        with patch('src.api.services.webhook_service.WebhookService.list_webhooks') as mock_list:
+            mock_list.return_value = (mock_webhooks, 1)
+            
+            response = client.get("/api/v1/webhooks/list")
+            assert response.status_code == 200
+            result = response.json()
+            assert result["total"] == 1
+            print("  ✓ Webhook listing")
+        
+        # Test event types info
+        response = client.get("/api/v1/webhooks/events/types")
+        assert response.status_code == 200
+        result = response.json()
+        assert "event_types" in result
+        assert "categories" in result
+        print("  ✓ Event types info")
+        
+        app.dependency_overrides.clear()
         print("✅ Webhook System tests passed")
         
     
@@ -272,73 +281,72 @@ try:
         """Test third-party integration system."""
         print("Testing Integration System...")
         
+        from src.api.auth import get_current_user as _get_current_user
         app = create_app(TEST_CONFIG)
+        app.dependency_overrides[_get_current_user] = lambda: TEST_USER
         client = TestClient(app)
         
-        # Mock authentication
-        with patch('src.api.routers.integrations.AuthManager') as mock_auth:
-            mock_auth.return_value.get_current_user.return_value = TEST_USER
+        # Test integration creation
+        integration_request = {
+            "provider": "twilio",
+            "name": "Test Twilio Integration",
+            "config": {
+                "account_sid": "test_account_sid",
+                "auth_token": "test_auth_token",
+                "phone_number": "+1234567890"
+            },
+            "auto_start": True
+        }
+        
+        with patch('src.api.integrations.manager.IntegrationManager.create_integration') as mock_create:
+            mock_create.return_value = "integration_123"
             
-            # Test integration creation
-            integration_request = {
-                "provider": "twilio",
-                "name": "Test Twilio Integration",
-                "config": {
-                    "account_sid": "test_account_sid",
-                    "auth_token": "test_auth_token",
-                    "phone_number": "+1234567890"
-                },
-                "auto_start": True
-            }
-            
-            with patch('src.api.integrations.manager.IntegrationManager.create_integration') as mock_create:
-                mock_create.return_value = "integration_123"
-                
-                response = client.post("/api/v1/integrations/", json=integration_request)
-                assert response.status_code == 200
-                result = response.json()
-                assert "integration_id" in result
-                print("  ✓ Integration creation")
-            
-            # Test integration listing
-            mock_integrations = [
-                {
-                    "id": "integration_1",
-                    "name": "Twilio EU",
-                    "provider": "twilio",
-                    "type": "telephony",
-                    "status": "active",
-                    "enabled": True,
-                    "metrics": {"calls_made": 50}
-                }
-            ]
-            
-            mock_stats = {
-                "total_integrations": 1,
-                "active_integrations": 1,
-                "integrations_by_type": {"telephony": 1},
-                "integrations_by_status": {"active": 1}
-            }
-            
-            with patch('src.api.integrations.manager.IntegrationManager.list_integrations') as mock_list:
-                with patch('src.api.integrations.manager.IntegrationManager.get_manager_stats') as mock_stats_call:
-                    mock_list.return_value = mock_integrations
-                    mock_stats_call.return_value = mock_stats
-                    
-                    response = client.get("/api/v1/integrations/")
-                    assert response.status_code == 200
-                    result = response.json()
-                    assert result["total"] == 1
-                    print("  ✓ Integration listing")
-            
-            # Test system info
-            response = client.get("/api/v1/integrations/system/info")
+            response = client.post("/api/v1/integrations/", json=integration_request)
             assert response.status_code == 200
             result = response.json()
-            assert "service" in result
-            assert "supported_integrations" in result
-            print("  ✓ System info")
+            assert "integration_id" in result
+            print("  ✓ Integration creation")
         
+        # Test integration listing
+        mock_integrations = [
+            {
+                "id": "integration_1",
+                "name": "Twilio EU",
+                "provider": "twilio",
+                "type": "telephony",
+                "status": "active",
+                "enabled": True,
+                "metrics": {"calls_made": 50}
+            }
+        ]
+        
+        mock_stats = {
+            "total_integrations": 1,
+            "active_integrations": 1,
+            "integrations_by_type": {"telephony": 1},
+            "integrations_by_status": {"active": 1}
+        }
+        
+        with patch('src.api.integrations.manager.IntegrationManager.list_integrations') as mock_list:
+            with patch('src.api.integrations.manager.IntegrationManager.get_manager_stats') as mock_stats_call:
+                mock_list.return_value = mock_integrations
+                mock_stats_call.return_value = mock_stats
+                
+                response = client.get("/api/v1/integrations/")
+                assert response.status_code == 200
+                result = response.json()
+                assert result["total"] == 1
+                print("  ✓ Integration listing")
+        
+        # Test system info
+        response = client.get("/api/v1/integrations/system/info")
+        assert response.status_code == 200
+        result = response.json()
+        assert "service" in result
+        assert "supported_integrations" in result
+        print("  ✓ System info")
+        
+        app.dependency_overrides.clear()
         print("✅ Integration System tests passed")
         
     
@@ -413,7 +421,9 @@ try:
         """Test error handling and edge cases."""
         print("Testing Error Handling...")
         
+        from src.api.auth import get_current_user as _get_current_user
         app = create_app(TEST_CONFIG)
+        app.dependency_overrides[_get_current_user] = lambda: TEST_USER
         client = TestClient(app)
         
         # Test 404 handling
@@ -435,6 +445,7 @@ try:
         assert response.status_code in [400, 422]
         print("  ✓ Missing required fields handling")
         
+        app.dependency_overrides.clear()
         print("✅ Error Handling tests passed")
         
     

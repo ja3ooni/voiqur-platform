@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime
 
-from ..auth import AuthManager, User
+from ..auth import AuthManager, User, get_current_user
 from ..integrations.manager import IntegrationManager, get_integration_manager
 from ..integrations.base import IntegrationType, IntegrationStatus
 from pydantic import BaseModel, Field
@@ -103,7 +103,7 @@ def get_integration_manager_dep() -> IntegrationManager:
 @router.post("/", response_model=Dict[str, str])
 async def create_integration(
     request: IntegrationCreateRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -142,7 +142,7 @@ async def create_integration(
 async def list_integrations(
     type: Optional[str] = Query(None, description="Filter by integration type"),
     status: Optional[str] = Query(None, description="Filter by status"),
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -212,7 +212,7 @@ async def list_integrations(
 @router.get("/{integration_id}")
 async def get_integration(
     integration_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -240,7 +240,7 @@ async def get_integration(
 async def update_integration(
     integration_id: str,
     request: IntegrationUpdateRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -284,7 +284,7 @@ async def update_integration(
 @router.delete("/{integration_id}")
 async def delete_integration(
     integration_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -317,7 +317,7 @@ async def delete_integration(
 @router.post("/{integration_id}/start")
 async def start_integration(
     integration_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -348,7 +348,7 @@ async def start_integration(
 @router.post("/{integration_id}/stop")
 async def stop_integration(
     integration_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -379,7 +379,7 @@ async def stop_integration(
 @router.post("/{integration_id}/test")
 async def test_integration(
     integration_id: str,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -407,7 +407,7 @@ async def test_integration(
 async def send_message(
     integration_id: str,
     request: MessageRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -445,7 +445,7 @@ async def send_message(
 async def make_call(
     integration_id: str,
     request: CallRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -483,7 +483,7 @@ async def make_call(
 async def search_contacts(
     integration_id: str,
     request: ContactSearchRequest,
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """
@@ -511,20 +511,23 @@ async def search_contacts(
         # Convert contacts to dict format
         contacts_data = []
         for contact in contacts:
-            contacts_data.append({
-                "id": contact.id,
-                "external_id": contact.external_id,
-                "first_name": contact.first_name,
-                "last_name": contact.last_name,
-                "email": contact.email,
-                "phone": contact.phone,
-                "mobile": contact.mobile,
-                "company": contact.company,
-                "title": contact.title,
-                "source": contact.source,
-                "created_date": contact.created_date,
-                "modified_date": contact.modified_date
-            })
+            if isinstance(contact, dict):
+                contacts_data.append(contact)
+            else:
+                contacts_data.append({
+                    "id": contact.id,
+                    "external_id": getattr(contact, "external_id", None),
+                    "first_name": getattr(contact, "first_name", None),
+                    "last_name": getattr(contact, "last_name", None),
+                    "email": getattr(contact, "email", None),
+                    "phone": getattr(contact, "phone", None),
+                    "mobile": getattr(contact, "mobile", None),
+                    "company": getattr(contact, "company", None),
+                    "title": getattr(contact, "title", None),
+                    "source": getattr(contact, "source", None),
+                    "created_date": getattr(contact, "created_date", None),
+                    "modified_date": getattr(contact, "modified_date", None),
+                })
         
         return {
             "integration_id": integration_id,
@@ -617,7 +620,7 @@ async def get_integrations_info():
 
 @router.get("/system/stats")
 async def get_system_stats(
-    current_user: User = Depends(AuthManager(None).get_current_user),
+    current_user: User = Depends(get_current_user),
     manager: IntegrationManager = Depends(get_integration_manager_dep)
 ):
     """

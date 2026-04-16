@@ -158,7 +158,7 @@ class ComplianceValidationSystem:
         if ComplianceCategory.GDPR in categories_to_check:
             logger.info("Running GDPR compliance check...")
             gdpr_result = await self.gdpr_validator.validate_project(project_path)
-            category_results[ComplianceCategory.GDPR] = gdpr_result.status
+            category_results[ComplianceCategory.GDPR] = ComplianceStatus(gdpr_result.status)
             all_issues.extend(gdpr_result.issues)
             
             if self.auto_fix_enabled:
@@ -169,7 +169,7 @@ class ComplianceValidationSystem:
         if ComplianceCategory.AI_ACT in categories_to_check:
             logger.info("Running AI Act compliance check...")
             ai_act_result = await self.ai_act_validator.validate_project(project_path)
-            category_results[ComplianceCategory.AI_ACT] = ai_act_result.status
+            category_results[ComplianceCategory.AI_ACT] = ComplianceStatus(ai_act_result.status)
             all_issues.extend(ai_act_result.issues)
             
             if self.auto_fix_enabled:
@@ -180,7 +180,7 @@ class ComplianceValidationSystem:
         if ComplianceCategory.LICENSING in categories_to_check:
             logger.info("Running licensing compliance check...")
             license_result = await self.license_validator.validate_project(project_path)
-            category_results[ComplianceCategory.LICENSING] = license_result.status
+            category_results[ComplianceCategory.LICENSING] = ComplianceStatus(license_result.status)
             all_issues.extend(license_result.issues)
             
             if self.auto_fix_enabled:

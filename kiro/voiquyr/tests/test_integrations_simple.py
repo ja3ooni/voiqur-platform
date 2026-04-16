@@ -35,10 +35,8 @@ class IntegrationConfig(BaseModel):
 
 
 class TwilioConfig(IntegrationConfig):
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.TELEPHONY
-        self.provider = "twilio"
+    type: IntegrationType = IntegrationType.TELEPHONY
+    provider: str = "twilio"
     
     account_sid: str = ""
     auth_token: str = ""
@@ -47,10 +45,8 @@ class TwilioConfig(IntegrationConfig):
 
 
 class SalesforceConfig(IntegrationConfig):
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.CRM
-        self.provider = "salesforce"
+    type: IntegrationType = IntegrationType.CRM
+    provider: str = "salesforce"
     
     client_id: str = ""
     client_secret: str = ""
@@ -59,10 +55,8 @@ class SalesforceConfig(IntegrationConfig):
 
 
 class WhatsAppConfig(IntegrationConfig):
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = IntegrationType.MESSAGING
-        self.provider = "whatsapp"
+    type: IntegrationType = IntegrationType.MESSAGING
+    provider: str = "whatsapp"
     
     access_token: str = ""
     phone_number_id: str = ""

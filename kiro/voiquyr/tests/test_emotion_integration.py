@@ -4,6 +4,9 @@ Test script for emotion-aware TTS synthesis integration
 Tests the integration between Emotion Agent and TTS Agent
 """
 
+import pytest
+pytest.importorskip("torch")
+
 import asyncio
 import logging
 import numpy as np

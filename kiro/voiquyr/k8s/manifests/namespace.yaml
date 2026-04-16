@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voiquyr
+  labels:
+    compliance: gdpr
+    region: eu
+  annotations:
+    compliance.euvoice.ai/gdpr: "enabled"
+    compliance.euvoice.ai/ai-act: "enabled"

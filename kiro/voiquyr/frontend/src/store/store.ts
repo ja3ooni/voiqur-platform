@@ -2,8 +2,10 @@ import { configureStore } from '@reduxjs/toolkit';
 import configurationReducer from './slices/configurationSlice';
 import audioStreamReducer from './slices/audioStreamSlice';
 import analyticsReducer from './slices/analyticsSlice';
+import authReducer from './slices/authSlice';
 
 const rootReducer = {
+  auth: authReducer,
   configuration: configurationReducer,
   audioStream: audioStreamReducer,
   analytics: analyticsReducer,

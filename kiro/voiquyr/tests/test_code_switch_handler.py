@@ -5,19 +5,13 @@ Feature: voiquyr-differentiators
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings, strategies as st, HealthCheck
 from src.core.code_switch_handler import (
     CodeSwitchHandler,
     Language,
     LanguageSegment,
     ResponseLanguageConfig
 )
-
-
-@pytest.fixture
-def handler():
-    """Setup code switch handler."""
-    return CodeSwitchHandler()
 
 
 # Property 12: Code-switch detection coverage
@@ -30,8 +24,9 @@ def handler():
     )
 )
 @settings(max_examples=100)
-def test_code_switch_detection_coverage(handler, lang_sequence):
+def test_code_switch_detection_coverage(lang_sequence):
     """Property 12: Code-switch detection coverage."""
+    handler = CodeSwitchHandler()
     # Create mock words with language boundaries
     words = [
         {"text": f"word{i}", "language": lang, "confidence": 0.9, "idx": i}
@@ -70,8 +65,9 @@ def test_code_switch_detection_coverage(handler, lang_sequence):
     )
 )
 @settings(max_examples=100)
-def test_unified_transcript_completeness(handler, words):
+def test_unified_transcript_completeness(words):
     """Property 13: Unified transcript completeness."""
+    handler = CodeSwitchHandler()
     # Create word list with languages
     words_with_lang = [
         {"text": text, "language": lang, "confidence": 0.9, "idx": i}
@@ -93,8 +89,9 @@ def test_unified_transcript_completeness(handler, words):
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_preferred_response_language_enforcement(handler, preferred_lang):
+async def test_preferred_response_language_enforcement(preferred_lang):
     """Property 14: Preferred response language enforcement."""
+    handler = CodeSwitchHandler()
     # Create mock transcript with mixed languages
     transcript = await handler.transcribe(b"mock_audio", [Language.ENGLISH, Language.ARABIC])
     

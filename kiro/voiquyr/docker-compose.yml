@@ -1,0 +1,145 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Voiquyr Platform — Docker Compose
+#
+# Services:
+#   postgres          — shared database (port 5432)
+#   redis             — cache / rate-limiting / queuing (port 6379)
+#   api               — main EUVoice platform API (port 8000)
+#   command-center-api — Voiquyr orchestrator API (port 8001)
+#   dashboard         — React dashboard (port 3000)
+#   command-center-ui — Vite command-center frontend (port 5173)
+#
+# Quick start:
+#   cp .env.example .env          # fill in real API keys
+#   docker compose up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-restart: &restart
+  restart: unless-stopped
+
+x-api-env: &api-env
+  DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-euvoice}
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  ENABLE_DOCS: "true"
+  MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+  DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+  ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+  STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+  TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+  TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+  MAX_CONCURRENT_WEBHOOKS: ${MAX_CONCURRENT_WEBHOOKS:-100}
+  WEBHOOK_TIMEOUT: ${WEBHOOK_TIMEOUT:-30}
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    <<: *restart
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-euvoice}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Create a second database for the command center on init
+      POSTGRES_MULTIPLE_DATABASES: "euvoice,voiquyr_cc"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/init.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-euvoice}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    <<: *restart
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Backend services ─────────────────────────────────────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    <<: *restart
+    environment:
+      <<: *api-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  command-center-api:
+    build:
+      context: voiquyr-command-center/backend
+      dockerfile: Dockerfile
+    <<: *restart
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/voiquyr_cc
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Frontend services ────────────────────────────────────────────────────────
+
+  dashboard:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    <<: *restart
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  command-center-ui:
+    build:
+      context: voiquyr-command-center/frontend
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    <<: *restart
+    ports:
+      - "5173:80"
+    depends_on:
+      - command-center-api
+
+volumes:
+  postgres_data:
+  redis_data:

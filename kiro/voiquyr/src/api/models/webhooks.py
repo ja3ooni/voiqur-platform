@@ -50,6 +50,22 @@ class WebhookEventType(str, Enum):
     USER_REGISTERED = "user.registered"
     USER_UPDATED = "user.updated"
     USER_DELETED = "user.deleted"
+    
+    # Telephony events
+    CALL_STARTED = "call.started"
+    CALL_ENDED = "call.ended"
+    CALL_COMPLETED = "call.completed"
+    CALL_FAILED = "call.failed"
+    SMS_SENT = "sms.sent"
+    SMS_RECEIVED = "sms.received"
+    
+    # CRM events
+    CONTACT_CREATED = "contact.created"
+    CONTACT_UPDATED = "contact.updated"
+    
+    # Messaging events
+    MESSAGE_SENT = "message.sent"
+    MESSAGE_RECEIVED = "message.received"
 
 
 class WebhookStatus(str, Enum):

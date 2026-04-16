@@ -1,28 +1,33 @@
-# EUVoice AI Platform Helm Values
+# ─────────────────────────────────────────────────────────────────────────────
+# EUVoice AI Platform — Helm Values
+#
+# Images produced by the Dockerfiles in this repo:
+#   api                  → Dockerfile (root)
+#   command-center-api   → voiquyr-command-center/backend/Dockerfile
+#   dashboard            → frontend/Dockerfile
+#   command-center-ui    → voiquyr-command-center/frontend/Dockerfile
+# ─────────────────────────────────────────────────────────────────────────────
 
 global:
-  # EU compliance settings
   region: "eu-central-1"
   dataResidency: "eu"
   gdprCompliance: true
   aiActCompliance: true
-  
-  # Image registry
-  imageRegistry: "registry.eu-central-1.amazonaws.com"
+
+  # Set to your registry, e.g. "ghcr.io/your-org" or "registry.eu-central-1.amazonaws.com"
+  imageRegistry: ""
   imagePullSecrets: []
-  
-  # Storage class for EU compliance
+
   storageClass: "gp3-encrypted"
-  
-  # Network policies
+
   networkPolicies:
     enabled: true
     denyAll: false
 
-# Namespace configuration
+# ── Namespace ─────────────────────────────────────────────────────────────────
 namespace:
   create: true
-  name: "euvoice"
+  name: "voiquyr"
   labels:
     compliance: "gdpr"
     region: "eu"
@@ -30,361 +35,238 @@ namespace:
     "compliance.euvoice.ai/gdpr": "enabled"
     "compliance.euvoice.ai/ai-act": "enabled"
 
-# Resource quotas for namespace isolation
 resourceQuota:
   enabled: true
   hard:
-    requests.cpu: "50"
-    requests.memory: "200Gi"
-    limits.cpu: "100"
-    limits.memory: "400Gi"
-    persistentvolumeclaims: "50"
+    requests.cpu: "20"
+    requests.memory: "40Gi"
+    limits.cpu: "40"
+    limits.memory: "80Gi"
+    persistentvolumeclaims: "20"
     services: "20"
-    secrets: "50"
-    configmaps: "50"
+    secrets: "30"
+    configmaps: "30"
 
-# Multi-Agent Framework Core
-multiAgentFramework:
-  enabled: true
-  replicaCount: 3
-  image:
-    repository: euvoice/multi-agent-framework
-    tag: "0.1.0"
-    pullPolicy: IfNotPresent
-  
-  resources:
-    requests:
-      cpu: "2"
-      memory: "4Gi"
-    limits:
-      cpu: "4"
-      memory: "8Gi"
-  
-  env:
-    REDIS_URL: "redis://redis-master:6379"
-    POSTGRES_URL: "postgresql://postgres:5432/euvoice"
-    LOG_LEVEL: "INFO"
-    EU_COMPLIANCE_MODE: "true"
-
-# STT Agent Configuration
-sttAgent:
+# ── Main Platform API ─────────────────────────────────────────────────────────
+api:
   enabled: true
   replicaCount: 2
   image:
-    repository: euvoice/stt-agent
-    tag: "0.1.0"
+    repository: voiquyr/api
+    tag: "latest"
     pullPolicy: IfNotPresent
-  
+
+  service:
+    type: ClusterIP
+    port: 8000
+
   resources:
     requests:
-      cpu: "4"
-      memory: "8Gi"
-      nvidia.com/gpu: "1"
+      cpu: "500m"
+      memory: "512Mi"
     limits:
-      cpu: "8"
-      memory: "16Gi"
-      nvidia.com/gpu: "1"
-  
-  models:
-    voxtralSmall: "mistral/voxtral-small-24b"
-    voxtralMini: "mistral/voxtral-mini-3b"
-    fallback: "nvidia/canary-1b-v2"
-  
+      cpu: "2"
+      memory: "2Gi"
+
   autoscaling:
     enabled: true
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
 
-# LLM Agent Configuration
-llmAgent:
+  env:
+    ENVIRONMENT: "production"
+    LOG_LEVEL: "INFO"
+    ENABLE_DOCS: "false"
+
+# ── Command Center API ────────────────────────────────────────────────────────
+commandCenterApi:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: voiquyr/command-center-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8001
+
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+# ── Dashboard (React) ─────────────────────────────────────────────────────────
+dashboard:
   enabled: true
   replicaCount: 2
   image:
-    repository: euvoice/llm-agent
-    tag: "0.1.0"
+    repository: voiquyr/dashboard
+    tag: "latest"
     pullPolicy: IfNotPresent
-  
-  resources:
-    requests:
-      cpu: "4"
-      memory: "16Gi"
-      nvidia.com/gpu: "1"
-    limits:
-      cpu: "8"
-      memory: "32Gi"
-      nvidia.com/gpu: "1"
-  
-  models:
-    primary: "mistral/small-3.1-22b"
-    enhancement: "tildeopen/llm-30b"
-  
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 8
-    targetCPUUtilizationPercentage: 70
 
-# TTS Agent Configuration
-ttsAgent:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: euvoice/tts-agent
-    tag: "0.1.0"
-    pullPolicy: IfNotPresent
-  
+  service:
+    type: ClusterIP
+    port: 80
+
   resources:
     requests:
-      cpu: "2"
-      memory: "8Gi"
-      nvidia.com/gpu: "1"
+      cpu: "100m"
+      memory: "128Mi"
     limits:
-      cpu: "4"
-      memory: "16Gi"
-      nvidia.com/gpu: "1"
-  
-  models:
-    primary: "xtts-v2"
-    alternatives: ["melotts", "nvidia/parakeet-tdt-0.6b-v3"]
-  
+      cpu: "500m"
+      memory: "512Mi"
+
   autoscaling:
     enabled: true
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
 
-# Specialized Agents
-emotionAgent:
+# ── Command Center UI (Vite) ──────────────────────────────────────────────────
+commandCenterUi:
   enabled: true
   replicaCount: 1
   image:
-    repository: euvoice/emotion-agent
-    tag: "0.1.0"
-  resources:
-    requests:
-      cpu: "1"
-      memory: "2Gi"
-    limits:
-      cpu: "2"
-      memory: "4Gi"
-
-accentAgent:
-  enabled: true
-  replicaCount: 1
-  image:
-    repository: euvoice/accent-agent
-    tag: "0.1.0"
-  resources:
-    requests:
-      cpu: "1"
-      memory: "2Gi"
-    limits:
-      cpu: "2"
-      memory: "4Gi"
-
-lipSyncAgent:
-  enabled: true
-  replicaCount: 1
-  image:
-    repository: euvoice/lip-sync-agent
-    tag: "0.1.0"
-  resources:
-    requests:
-      cpu: "2"
-      memory: "4Gi"
-    limits:
-      cpu: "4"
-      memory: "8Gi"
-
-arabicAgent:
-  enabled: true
-  replicaCount: 1
-  image:
-    repository: euvoice/arabic-agent
-    tag: "0.1.0"
-  resources:
-    requests:
-      cpu: "2"
-      memory: "4Gi"
-      nvidia.com/gpu: "0.5"
-    limits:
-      cpu: "4"
-      memory: "8Gi"
-      nvidia.com/gpu: "1"
-
-# Frontend Dashboard
-frontend:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: euvoice/frontend-dashboard
-    tag: "0.1.0"
+    repository: voiquyr/command-center-ui
+    tag: "latest"
     pullPolicy: IfNotPresent
-  
-  resources:
-    requests:
-      cpu: "0.5"
-      memory: "1Gi"
-    limits:
-      cpu: "1"
-      memory: "2Gi"
-  
+
   service:
     type: ClusterIP
     port: 80
-    targetPort: 3000
-  
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
 
-# API Gateway
-apiGateway:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: euvoice/api-gateway
-    tag: "0.1.0"
-  
   resources:
     requests:
-      cpu: "1"
-      memory: "2Gi"
+      cpu: "100m"
+      memory: "128Mi"
     limits:
-      cpu: "2"
-      memory: "4Gi"
-  
-  service:
-    type: LoadBalancer
-    port: 443
-    targetPort: 8080
-    annotations:
-      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-      service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:eu-central-1:ACCOUNT:certificate/CERT-ID"
+      cpu: "500m"
+      memory: "512Mi"
 
-# Database Configuration
+# ── PostgreSQL (Bitnami) ──────────────────────────────────────────────────────
 postgresql:
   enabled: true
   auth:
-    postgresPassword: "changeme"
+    postgresPassword: "changeme-use-secret"
     database: "euvoice"
   primary:
-    persistence:
-      enabled: true
-      size: "100Gi"
-      storageClass: "gp3-encrypted"
-    resources:
-      requests:
-        cpu: "2"
-        memory: "4Gi"
-      limits:
-        cpu: "4"
-        memory: "8Gi"
-  metrics:
-    enabled: true
-
-redis:
-  enabled: true
-  auth:
-    enabled: true
-    password: "changeme"
-  master:
     persistence:
       enabled: true
       size: "20Gi"
       storageClass: "gp3-encrypted"
     resources:
       requests:
-        cpu: "1"
-        memory: "2Gi"
+        cpu: "500m"
+        memory: "1Gi"
       limits:
         cpu: "2"
         memory: "4Gi"
+  metrics:
+    enabled: true
 
-# Monitoring Stack
-monitoring:
-  prometheus:
+# ── Redis (Bitnami) ───────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  auth:
     enabled: true
-    retention: "30d"
-    storageSize: "50Gi"
-  
-  grafana:
-    enabled: true
-    adminPassword: "changeme"
+    password: "changeme-use-secret"
+  master:
     persistence:
       enabled: true
-      size: "10Gi"
-  
-  jaeger:
-    enabled: true
-    storage:
-      type: "elasticsearch"
+      size: "8Gi"
+      storageClass: "gp3-encrypted"
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
 
-# Security Configuration
-security:
-  networkPolicies:
-    enabled: true
-  
-  podSecurityPolicy:
-    enabled: true
-  
-  rbac:
-    enabled: true
-  
-  encryption:
-    atRest: true
-    inTransit: true
-  
-  auditLogging:
-    enabled: true
-    retention: "7y"  # GDPR requirement
+# ── Secrets (override at deploy time — never commit real values) ──────────────
+secrets:
+  jwtSecretKey: ""
+  mistralApiKey: ""
+  deepgramApiKey: ""
+  elevenlabsApiKey: ""
+  stripeApiKey: ""
+  twilioAccountSid: ""
+  twilioAuthToken: ""
+  geminiApiKey: ""
 
-# Istio Service Mesh
-istio:
-  enabled: true
-  gateway:
-    enabled: true
-    hosts:
-      - "api.euvoice.ai"
-      - "dashboard.euvoice.ai"
-  
-  virtualService:
-    enabled: true
-  
-  destinationRule:
-    enabled: true
-    trafficPolicy:
-      tls:
-        mode: ISTIO_MUTUAL
-
-# Ingress Configuration
+# ── Ingress ───────────────────────────────────────────────────────────────────
 ingress:
   enabled: true
   className: "nginx"
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-  
   hosts:
-    - host: dashboard.euvoice.ai
+    - host: api.voiquyr.eu
       paths:
         - path: /
           pathType: Prefix
-          service: frontend
-    - host: api.euvoice.ai
+          service: api
+    - host: app.voiquyr.eu
       paths:
         - path: /
           pathType: Prefix
-          service: api-gateway
-  
+          service: dashboard
+    - host: command.voiquyr.eu
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: commandCenterApi
+        - path: /
+          pathType: Prefix
+          service: commandCenterUi
   tls:
-    - secretName: euvoice-tls
+    - secretName: voiquyr-tls
       hosts:
-        - dashboard.euvoice.ai
-        - api.euvoice.ai
+        - api.voiquyr.eu
+        - app.voiquyr.eu
+        - command.voiquyr.eu
+
+# ── Monitoring ────────────────────────────────────────────────────────────────
+monitoring:
+  prometheus:
+    enabled: true
+    retention: "30d"
+    storageSize: "20Gi"
+  grafana:
+    enabled: true
+    adminPassword: "changeme"
+    persistence:
+      enabled: true
+      size: "5Gi"
+  jaeger:
+    enabled: false
+
+# ── Security ──────────────────────────────────────────────────────────────────
+security:
+  networkPolicies:
+    enabled: true
+  podSecurityPolicy:
+    enabled: false   # deprecated in k8s 1.25+; use Pod Security Admission instead
+  rbac:
+    enabled: true
+  encryption:
+    atRest: true
+    inTransit: true
+  auditLogging:
+    enabled: true
+    retention: "7y"
+
+# ── Istio (optional) ──────────────────────────────────────────────────────────
+istio:
+  enabled: false
+  gateway:
+    enabled: false
+    hosts:
+      - "api.voiquyr.eu"
+      - "app.voiquyr.eu"

@@ -228,6 +228,127 @@ class MonitoringService:
         
         return 50.0  # Default score when no data
     
+    async def get_system_health_summary(self) -> SystemHealthSummary:
+        """Get a comprehensive system health summary."""
+        perf_summary = self.performance_monitor.get_performance_summary(60)
+        resource_efficiency = await self.resource_tracker.analyze_resource_efficiency()
+        active_alerts = self.performance_monitor.get_active_alerts()
+        optimizations = await self.resource_tracker.get_optimization_recommendations()
+
+        performance_score = self._calculate_performance_score(perf_summary)
+        resource_score = self._calculate_resource_score(resource_efficiency)
+        cost_score = 80.0  # Placeholder
+
+        alert_penalty = min(len(active_alerts) * 5, 30)
+        overall = (
+            performance_score * self.health_weights["performance"] +
+            resource_score * self.health_weights["resources"] +
+            cost_score * self.health_weights["cost"] +
+            max(0, 100 - alert_penalty) * self.health_weights["alerts"]
+        )
+
+        if overall >= 80:
+            status = "healthy"
+        elif overall >= 60:
+            status = "warning"
+        else:
+            status = "critical"
+
+        active_issues = [str(alert) for alert in active_alerts[:5]]
+        recommendations = [str(opt) for opt in optimizations[:5]]
+
+        return SystemHealthSummary(
+            overall_status=status,
+            performance_score=round(performance_score, 1),
+            resource_efficiency_score=round(resource_score, 1),
+            cost_optimization_score=round(cost_score, 1),
+            active_issues=active_issues,
+            recommendations=recommendations
+        )
+
+    async def get_component_analysis(self, component: "ComponentType") -> Dict[str, Any]:
+        """Get detailed analysis for a specific component."""
+        perf_summary = self.performance_monitor.get_performance_summary(60)
+        component_data = perf_summary.get("components", {}).get(component.value, {})
+
+        health_score = 100.0
+        if "latency" in component_data:
+            avg_latency = component_data["latency"].get("avg", 0)
+            if avg_latency > 1000:
+                health_score -= 30
+            elif avg_latency > 500:
+                health_score -= 15
+        if "error_rate" in component_data:
+            error_rate = component_data["error_rate"].get("avg", 0)
+            if error_rate > 5:
+                health_score -= 40
+            elif error_rate > 1:
+                health_score -= 20
+
+        return {
+            "component": component.value,
+            "health_score": max(0.0, health_score),
+            "performance_metrics": component_data,
+            "status": "healthy" if health_score >= 80 else "warning" if health_score >= 60 else "critical",
+        }
+
+    async def get_unified_dashboard(self) -> Dict[str, Any]:
+        """Get a unified monitoring dashboard."""
+        health_summary = await self.get_system_health_summary()
+        perf_summary = self.performance_monitor.get_performance_summary(60)
+        resource_efficiency = await self.resource_tracker.analyze_resource_efficiency()
+
+        return {
+            "system_health": {
+                "overall_status": health_summary.overall_status,
+                "performance_score": health_summary.performance_score,
+                "resource_efficiency_score": health_summary.resource_efficiency_score,
+            },
+            "performance": {
+                "dashboard": {
+                    "current_status": {
+                        "overall": health_summary.overall_status,
+                    },
+                    "summary": perf_summary,
+                }
+            },
+            "resources": {
+                "dashboard": {
+                    "current_usage": resource_efficiency.get("by_resource", {}),
+                    "efficiency": resource_efficiency.get("overall_efficiency", 50.0),
+                }
+            },
+        }
+
+    async def generate_monitoring_report(self, report_type: str = "full", hours: int = 24) -> Dict[str, Any]:
+        """Generate a comprehensive monitoring report."""
+        from datetime import datetime
+        import uuid
+
+        health_summary = await self.get_system_health_summary()
+        active_alerts = self.performance_monitor.get_active_alerts()
+        optimizations = await self.resource_tracker.get_optimization_recommendations()
+
+        return {
+            "report_metadata": {
+                "report_id": str(uuid.uuid4()),
+                "report_type": report_type,
+                "period_hours": hours,
+                "generated_at": datetime.utcnow().isoformat(),
+            },
+            "executive_summary": {
+                "overall_health_status": health_summary.overall_status,
+                "performance_score": health_summary.performance_score,
+                "resource_efficiency_score": health_summary.resource_efficiency_score,
+                "active_issues_count": len(active_alerts),
+                "optimization_opportunities": len(optimizations),
+            },
+            "action_items": {
+                "immediate_actions": health_summary.active_issues[:3],
+                "recommended_optimizations": health_summary.recommendations[:5],
+            },
+        }
+
     async def get_monitoring_status(self) -> MonitoringStatus:
         """Get current monitoring status."""
         # Get active alerts

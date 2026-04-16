@@ -96,6 +96,10 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
     @app.middleware("http")
     async def rate_limit_middleware(request: Request, call_next):
         """Apply rate limiting to all requests."""
+        # Skip rate limiting for OPTIONS (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
         client_ip = request.client.host
         
         if not await rate_limiter.is_allowed(client_ip, request.url.path):
@@ -148,6 +152,22 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
         prefix="/api/v1/auth",
         tags=["Auth"]
     )
+
+    @app.get("/")
+    async def root():
+        """Root endpoint — redirect to docs."""
+        return {
+            "message": "EUVoice AI Platform API",
+            "version": "1.0.0",
+            "docs": "/docs",
+            "health": "/api/v1/health/",
+            "endpoints": {
+                "auth": "/api/v1/auth/",
+                "voice": "/api/v1/voice/",
+                "webhooks": "/api/v1/webhooks/",
+                "integrations": "/api/v1/integrations/",
+            }
+        }
 
     # Store components in app state
     app.state.auth_manager = auth_manager

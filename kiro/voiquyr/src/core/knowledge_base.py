@@ -13,7 +13,7 @@ import json
 import hashlib
 from collections import defaultdict
 import asyncpg
-import aioredis
+import redis.asyncio as aioredis
 from pydantic import BaseModel, Field
 
 from .models import AgentMessage, MessageType, Priority

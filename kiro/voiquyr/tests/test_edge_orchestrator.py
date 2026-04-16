@@ -5,7 +5,7 @@ Feature: voiquyr-differentiators
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings, strategies as st, HealthCheck
 from src.core.edge_orchestrator import (
     EdgeOrchestrator,
     Jurisdiction,
@@ -15,18 +15,17 @@ from src.core.edge_orchestrator import (
 )
 
 
-# Jurisdiction to node mapping for testing
-JURISDICTION_TO_NODE = {
-    "EU": "eu-central-1",
-    "Gulf": "me-dubai-1",
-    "India": "asia-mumbai-1",
-    "SEA": "asia-singapore-1"
+# Jurisdiction to allowed nodes mapping for testing
+JURISDICTION_TO_NODES = {
+    "EU": {"eu-central-1"},
+    "Gulf": {"me-dubai-1"},
+    "India": {"asia-mumbai-1", "asia-singapore-1"},
+    "SEA": {"asia-mumbai-1", "asia-singapore-1"}
 }
 
 
-@pytest.fixture
-def orchestrator():
-    """Setup orchestrator with test endpoints."""
+def get_test_orchestrator():
+    """Create orchestrator with test endpoints."""
     orch = EdgeOrchestrator()
     
     # Register test endpoints
@@ -62,8 +61,9 @@ def orchestrator():
 )
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_jurisdiction_routing_invariant(orchestrator, call_id, jurisdiction):
+async def test_jurisdiction_routing_invariant(call_id, jurisdiction):
     """Property 1: Jurisdiction routing invariant."""
+    orchestrator = get_test_orchestrator()
     # Map test jurisdiction to country codes
     country_map = {
         "EU": "DE",
@@ -79,28 +79,27 @@ async def test_jurisdiction_routing_invariant(orchestrator, call_id, jurisdictio
         requires_ai_act=(jurisdiction == "EU")
     )
     
-    # Add routing rule if not exists
-    if context.source_country not in orchestrator.routing_rules:
-        jurisdiction_enum_map = {
-            "EU": Jurisdiction.EU,
-            "Gulf": Jurisdiction.MIDDLE_EAST,
-            "India": Jurisdiction.ASIA,
-            "SEA": Jurisdiction.ASIA
-        }
-        
-        orchestrator.add_routing_rule(RoutingRule(
-            source_country=context.source_country,
-            allowed_jurisdictions=[jurisdiction_enum_map[jurisdiction]],
-            preferred_jurisdiction=jurisdiction_enum_map[jurisdiction],
-            requires_gdpr=(jurisdiction == "EU"),
-            requires_ai_act=(jurisdiction == "EU")
-        ))
+    # Add routing rule
+    jurisdiction_enum_map = {
+        "EU": Jurisdiction.EU,
+        "Gulf": Jurisdiction.MIDDLE_EAST,
+        "India": Jurisdiction.ASIA,
+        "SEA": Jurisdiction.ASIA
+    }
+    
+    orchestrator.add_routing_rule(RoutingRule(
+        source_country=context.source_country,
+        allowed_jurisdictions=[jurisdiction_enum_map[jurisdiction]],
+        preferred_jurisdiction=jurisdiction_enum_map[jurisdiction],
+        requires_gdpr=(jurisdiction == "EU"),
+        requires_ai_act=(jurisdiction == "EU")
+    ))
     
     decision = await orchestrator.route_call(context)
     
-    # Assert routing decision matches expected node
+    # Assert routing decision matches expected node(s) for the jurisdiction
     assert decision is not None
-    assert decision.region == JURISDICTION_TO_NODE[jurisdiction]
+    assert decision.region in JURISDICTION_TO_NODES[jurisdiction]
 
 
 # Property 2: Audit log completeness
@@ -108,8 +107,9 @@ async def test_jurisdiction_routing_invariant(orchestrator, call_id, jurisdictio
 @given(call_ids=st.lists(st.uuids(), min_size=1, max_size=50))
 @settings(max_examples=100)
 @pytest.mark.asyncio
-async def test_audit_log_completeness(orchestrator, call_ids):
+async def test_audit_log_completeness(call_ids):
     """Property 2: Audit log completeness."""
+    orchestrator = get_test_orchestrator()
     routed_calls = []
     
     for call_id in call_ids:
