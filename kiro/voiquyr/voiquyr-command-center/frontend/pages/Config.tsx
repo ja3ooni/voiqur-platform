@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { MOCK_SIP_TRUNKS } from '../constants';
 import { Region } from '../types';
-import { Shield, Phone, Globe, Lock, Plus, Trash2, Server, Terminal, Activity, Wifi, Save, Code, Copy, Check, Box, FileText } from 'lucide-react';
+import { Shield, Phone, Globe, Lock, Plus, Trash2, Server, Terminal, Activity, Wifi, Save, Code, Copy, Check, Box, FileText, AlertCircle } from 'lucide-react';
+
+const API_BASE = 'http://localhost:8001';
+
+interface SipTrunk {
+  id: number;
+  name: string;
+  uri: string;
+  username?: string;
+  region: string;
+  status: string;
+}
 
 interface ConfigProps {
   activeTab?: string;
@@ -11,13 +21,66 @@ export const Config: React.FC<ConfigProps> = ({ activeTab = 'trunks' }) => {
   const [sovereigntyMode, setSovereigntyMode] = useState(true);
   const [homeRegion, setHomeRegion] = useState<Region>(Region.EU_FRANKFURT);
   const [piiRedaction, setPiiRedaction] = useState(true);
-  
+
+  // SIP Trunks state
+  const [trunks, setTrunks] = useState<SipTrunk[]>([]);
+  const [trunksLoading, setTrunksLoading] = useState(false);
+  const [trunksError, setTrunksError] = useState<string | null>(null);
+  const [showAddTrunk, setShowAddTrunk] = useState(false);
+  const [newTrunk, setNewTrunk] = useState({ name: '', uri: '', username: '', password: '', region: Region.EU_FRANKFURT });
+
   // Backend Settings
-  const [apiUrl, setApiUrl] = useState("http://localhost:8000");
-  const [wsUrl, setWsUrl] = useState("wss://your-ngrok-url.ngrok.io");
+  const [apiUrl, setApiUrl] = useState(API_BASE);
+  const [wsUrl, setWsUrl] = useState('wss://your-ngrok-url.ngrok.io');
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'checking'>('disconnected');
   const [healthResponse, setHealthResponse] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const token = localStorage.getItem('cc_token');
+  const authHeaders = token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+
+  const fetchTrunks = async () => {
+    setTrunksLoading(true);
+    setTrunksError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/sip-trunks/`, { headers: authHeaders });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setTrunks(await res.json());
+    } catch (e: any) {
+      setTrunksError(e.message);
+    } finally {
+      setTrunksLoading(false);
+    }
+  };
+
+  const addTrunk = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/sip-trunks/`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify(newTrunk),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setShowAddTrunk(false);
+      setNewTrunk({ name: '', uri: '', username: '', password: '', region: Region.EU_FRANKFURT });
+      fetchTrunks();
+    } catch (e: any) {
+      setTrunksError(e.message);
+    }
+  };
+
+  const deleteTrunk = async (id: number) => {
+    try {
+      await fetch(`${API_BASE}/api/sip-trunks/${id}`, { method: 'DELETE', headers: authHeaders });
+      fetchTrunks();
+    } catch (e: any) {
+      setTrunksError(e.message);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'trunks') fetchTrunks();
+  }, [activeTab]);
 
   const checkConnection = async () => {
     setConnectionStatus('checking');
@@ -25,10 +88,8 @@ export const Config: React.FC<ConfigProps> = ({ activeTab = 'trunks' }) => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
-      
-      const res = await fetch(`${apiUrl}/health`, { signal: controller.signal });
+      const res = await fetch(`${apiUrl}/api/health`, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
       if (res.ok) {
         const data = await res.json();
         setConnectionStatus('connected');
@@ -37,9 +98,9 @@ export const Config: React.FC<ConfigProps> = ({ activeTab = 'trunks' }) => {
         setConnectionStatus('disconnected');
         setHealthResponse(`Error: ${res.status} ${res.statusText}`);
       }
-    } catch (err) {
+    } catch {
       setConnectionStatus('disconnected');
-      setHealthResponse("Connection failed. Is the backend running on port 8000?");
+      setHealthResponse('Connection failed. Is the backend running?');
     }
   };
 
@@ -377,13 +438,36 @@ services:
                     </h3>
                     <p className="text-sm text-slate-400 mt-1">Manage SIP Trunks and PSTN Gateways</p>
                 </div>
-                <button className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors">
+                <button onClick={() => setShowAddTrunk(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors">
                     <Plus size={16} className="mr-2" />
                     Add Trunk
                 </button>
             </div>
 
             <div className="overflow-hidden rounded-lg border border-slate-800">
+                {trunksError && (
+                  <div className="flex items-center gap-2 p-3 bg-rose-500/10 text-rose-400 text-sm border-b border-slate-800">
+                    <AlertCircle size={14} /> {trunksError}
+                  </div>
+                )}
+                {showAddTrunk && (
+                  <div className="p-4 bg-slate-950 border-b border-slate-800 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <input placeholder="Name" value={newTrunk.name} onChange={e => setNewTrunk({...newTrunk, name: e.target.value})}
+                        className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white" />
+                      <input placeholder="SIP URI (sip:host:port)" value={newTrunk.uri} onChange={e => setNewTrunk({...newTrunk, uri: e.target.value})}
+                        className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white font-mono" />
+                      <input placeholder="Username (optional)" value={newTrunk.username} onChange={e => setNewTrunk({...newTrunk, username: e.target.value})}
+                        className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white" />
+                      <input placeholder="Password (optional)" type="password" value={newTrunk.password} onChange={e => setNewTrunk({...newTrunk, password: e.target.value})}
+                        className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={addTrunk} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg">Save</button>
+                      <button onClick={() => setShowAddTrunk(false)} className="px-4 py-2 bg-slate-700 text-white text-sm rounded-lg">Cancel</button>
+                    </div>
+                  </div>
+                )}
                 <table className="min-w-full bg-slate-900/50 text-left text-sm text-slate-400">
                     <thead className="bg-slate-950 text-slate-200 font-medium">
                         <tr>
@@ -395,7 +479,13 @@ services:
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
-                        {MOCK_SIP_TRUNKS.map((trunk) => (
+                        {trunksLoading && (
+                          <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">Loading...</td></tr>
+                        )}
+                        {!trunksLoading && trunks.length === 0 && (
+                          <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">No SIP trunks configured. Add one above.</td></tr>
+                        )}
+                        {trunks.map((trunk) => (
                             <tr key={trunk.id} className="hover:bg-slate-800/50 transition-colors">
                                 <td className="px-4 py-3 text-white font-medium">{trunk.name}</td>
                                 <td className="px-4 py-3 font-mono text-xs">{trunk.uri}</td>
@@ -406,7 +496,7 @@ services:
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                    <button className="text-slate-500 hover:text-rose-400 transition-colors">
+                                    <button onClick={() => deleteTrunk(trunk.id)} className="text-slate-500 hover:text-rose-400 transition-colors">
                                         <Trash2 size={16} />
                                     </button>
                                 </td>

@@ -30,23 +30,21 @@ Each spec contains `requirements.md`, `design.md`, and `tasks.md`.
 
 ### Commands
 
+> **IMPORTANT — shell commands must always be single-line.** Never use `\` line continuations or multi-line shell commands. zsh will split them and try to execute filenames as scripts. If a pytest invocation lists many files, put them all on one line separated by spaces.
+
 **Backend (from `kiro/voiquyr/`):**
 ```bash
-# Activate venv
-source .venv/Scripts/activate   # Windows bash
-# or: .venv\Scripts\activate.bat
-
 # Run API server
-python -m uvicorn src.api.main:app --reload
+.venv/bin/python -m uvicorn src.api.main:app --reload
 
-# Run tests
-pytest
-
-# Run a single test file
-pytest tests/test_billing_stripe.py -v
+# Run tests (always use .venv/bin/python -m pytest, never bare pytest)
+.venv/bin/python -m pytest tests/test_billing_stripe.py -v
 
 # Run tests matching a pattern
-pytest -k "test_stt" -v
+.venv/bin/python -m pytest -k "test_stt" -v
+
+# Run multiple test files (one line, space-separated)
+.venv/bin/python -m pytest tests/test_billing_stripe.py tests/test_billing_ucpm.py tests/test_api_simple.py -v
 ```
 
 **Main frontend dashboard (from `kiro/voiquyr/frontend/`):**

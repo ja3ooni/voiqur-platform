@@ -10,3 +10,11 @@ build/
 .next/
 kiro/voiquyr/audit_logs/
 kiro/voiquyr/.venv/
+.claude/
+.planning/
+.vscode/
+everything-claude-code/
+graphify/
+graphify-out/
+kiro/voiquyr/.pytest_cache
+kiro/voiquyr/.vscode

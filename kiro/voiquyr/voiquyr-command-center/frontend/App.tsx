@@ -20,8 +20,9 @@ const App: React.FC = () => {
         return <Config activeTab={activeTab} />;
       default:
         return (
-          <div className="flex items-center justify-center h-full text-slate-500">
-            Feature under development for Phase 2
+          <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2">
+            <span className="text-2xl">🚧</span>
+            <span className="text-sm">This section is not yet available.</span>
           </div>
         );
     }

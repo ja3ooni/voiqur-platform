@@ -303,11 +303,22 @@ class RefundEngine:
         try:
             refund.status = RefundStatus.PROCESSING
             
-            # TODO: Integrate with Stripe/PayPal refund API
-            # For now, simulate processing
-            await asyncio.sleep(0.1)
+            # Process refund via Stripe if transaction ID is available
+            transaction_id = refund.metadata.get("original_transaction_id")
+            if transaction_id and transaction_id != "tx_mock":
+                from .stripe_service import StripeService
+                stripe_svc = StripeService()
+                success = await stripe_svc.process_refund(
+                    transaction_id=transaction_id,
+                    amount=refund.refund_amount,
+                    reason="quality_issue"
+                )
+            else:
+                # No real transaction to refund — mark as completed (test/dev mode)
+                success = True
             
-            refund.status = RefundStatus.COMPLETED
+            if success:
+                refund.status = RefundStatus.COMPLETED
             refund.processed_at = datetime.utcnow()
             
             self.processed_refunds.append(refund)

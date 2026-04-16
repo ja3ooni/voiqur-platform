@@ -237,7 +237,8 @@ class MonitoringService:
 
         performance_score = self._calculate_performance_score(perf_summary)
         resource_score = self._calculate_resource_score(resource_efficiency)
-        cost_score = 80.0  # Placeholder
+        # Cost score derived from resource efficiency — lower waste = higher score
+        cost_score = min(100.0, resource_score * 1.1)
 
         alert_penalty = min(len(active_alerts) * 5, 30)
         overall = (

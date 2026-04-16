@@ -540,8 +540,8 @@ class BillingService:
             # Create customer if missing
             customer_id = await self.stripe_service.create_customer(
                 user_id=account.user_id,
-                email=f"{account.user_id}@example.com", # Placeholder
-                name=f"User {account.user_id}"
+                email=account.metadata.get("email", f"{account.user_id}@voiquyr.local"),
+                name=account.metadata.get("name", f"Account {account.user_id}")
             )
             account.metadata["stripe_customer_id"] = customer_id
             
