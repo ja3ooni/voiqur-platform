@@ -13,8 +13,9 @@ kiro/voiquyr/.venv/
 .claude/
 .planning/
 .vscode/
-everything-claude-code/
+*everything-claude-code*
 graphify/
 graphify-out/
 kiro/voiquyr/.pytest_cache
 kiro/voiquyr/.vscode
+*.DS_STORE

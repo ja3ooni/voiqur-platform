@@ -36,10 +36,10 @@ The platform is ~55% complete with a working skeleton (billing, analytics, compl
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-00-PLAN.md — Install pytest/pytest-asyncio/httpx, create pytest.ini + test stubs (Wave 0)
-- [ ] 01-01-PLAN.md — load_dotenv() wired into main.py, .env.example and local .env created (FOUND-01, FOUND-02)
-- [ ] 01-02-PLAN.md — asyncpg + aioredis pools on app.state, real health probes (FOUND-03, FOUND-04, FOUND-09)
-- [ ] 01-03-PLAN.md — DB schema init, auth router (register/login/me), get_current_user real DB lookup (FOUND-05, FOUND-06, FOUND-07, FOUND-08)
+- [x] 01-00-PLAN.md — Install pytest/pytest-asyncio/httpx, create pytest.ini + test stubs (Wave 0)
+- [x] 01-01-PLAN.md — load_dotenv() wired into main.py, .env.example and local .env created (FOUND-01, FOUND-02)
+- [x] 01-02-PLAN.md — asyncpg + aioredis pools on app.state, real health probes (FOUND-03, FOUND-04, FOUND-09)
+- [x] 01-03-PLAN.md — DB schema init, auth router (register/login/me), get_current_user real DB lookup (FOUND-05, FOUND-06, FOUND-07, FOUND-08)
 
 ### Phase 2: STT
 **Goal**: Audio input produces real transcriptions via Deepgram (with Voxtral fallback) wired into the processing pipeline
@@ -53,10 +53,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 02-00-PLAN.md — Install deepgram-sdk/mistralai/langdetect, rewrite test_stt_agent.py as pytest xfail stubs (STT-05)
-- [ ] 02-01-PLAN.md — Deepgram SDK async pre-recorded transcription + Voxtral fallback in VoxtralModelManager (STT-01, STT-02)
-- [ ] 02-02-PLAN.md — langdetect language detection in LanguageDetector.detect_language() (STT-03)
-- [ ] 02-03-PLAN.md — Wire real STT into processing_pipeline.py, remove xfail markers, finalize tests (STT-04, STT-05)
+- [x] 02-00-PLAN.md — Install deepgram-sdk/mistralai/langdetect, rewrite test_stt_agent.py as pytest xfail stubs (STT-05)
+- [x] 02-01-PLAN.md — Deepgram SDK async pre-recorded transcription + Voxtral fallback in VoxtralModelManager (STT-01, STT-02)
+- [x] 02-02-PLAN.md — langdetect language detection in LanguageDetector.detect_language() (STT-03)
+- [x] 02-03-PLAN.md — Wire real STT into processing_pipeline.py, remove xfail markers, finalize tests (STT-04, STT-05)
 
 ### Phase 3: LLM
 **Goal**: Conversation turns produce real Mistral API responses with tool calling and multi-turn history
@@ -70,9 +70,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Test stubs + real Mistral API client in MistralModelManager, delete mock (LLM-01, LLM-02)
-- [ ] 03-02-PLAN.md — Tool calling format + ConversationContext history wiring (LLM-03, LLM-04)
-- [ ] 03-03-PLAN.md — Multi-turn tool call integration test (LLM-05)
+- [x] 03-01-PLAN.md — Test stubs + real Mistral API client in MistralModelManager, delete mock (LLM-01, LLM-02)
+- [x] 03-02-PLAN.md — Tool calling format + ConversationContext history wiring (LLM-03, LLM-04)
+- [x] 03-03-PLAN.md — Multi-turn tool call integration test (LLM-05)
 
 ### Phase 4: TTS
 **Goal**: LLM responses are synthesized to real audio via ElevenLabs (with XTTS-v2 self-hosted path) and streamed to WebSocket clients
@@ -83,12 +83,12 @@ Plans:
   2. The XTTS-v2 self-hosted path via the `TTS` library is importable and callable without error
   3. `VoiceCloningEngine.clone_voice()` returns a voice embedding using real `get_conditioning_latents()` from a sample audio clip
   4. The end-to-end pipeline test passes: audio file in → STT → LLM → TTS → audio bytes out
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: ElevenLabs SDK synthesis in `XTTSv2ModelManager`
-- [ ] 04-02: XTTS-v2 self-hosted path + voice cloning engine
-- [ ] 04-03: TTS streaming chunks into `tts_streaming.py` + E2E pipeline test
+- [x] 04-01-PLAN.md — ElevenLabs SDK synthesis in XTTSv2ModelManager (TTS-01)
+- [x] 04-02-PLAN.md — XTTS-v2 self-hosted path + voice cloning engine (TTS-02, TTS-03)
+- [ ] 04-03-PLAN.md — TTS streaming chunks into tts_streaming.py + E2E pipeline test (TTS-04, TTS-05)
 
 ### Phase 5: Telephony
 **Goal**: The platform makes and receives real Twilio calls and SMS, with live audio bridging through the call controller
@@ -116,12 +116,12 @@ Plans:
   2. The Stripe production path completes a charge or subscription without hitting any mock fallback code
   3. `SalesforceIntegration` obtains an OAuth2 token and creates a contact record in a Salesforce sandbox
   4. A message sent via WhatsApp, Slack, or Telegram integration reaches the target channel (verified in test environment)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: Stripe production path + webhook signature verification
-- [ ] 06-02: Salesforce OAuth2 + contact/case creation
-- [ ] 06-03: WhatsApp (Twilio Conversations), Slack (Bolt SDK), Telegram (`python-telegram-bot`)
+- [x] 06-01-PLAN.md — Stripe production path + webhook signature verification (BILL-01, BILL-02)
+- [x] 06-02-PLAN.md — Salesforce OAuth2 + contact/case creation (CRM-01, CRM-02)
+- [x] 06-03-PLAN.md — WhatsApp (Twilio Conversations), Slack (Bolt SDK), Telegram (MSG-01, MSG-02, MSG-03)
 
 ### Phase 7: Frontend & Command Center
 **Goal**: Users can log in, stream audio via environment-configured WebSocket, and operators can monitor via the command center
@@ -132,17 +132,16 @@ Plans:
   2. `audioStreamService.ts` reads the WebSocket URL from `REACT_APP_API_URL` (not a hardcoded string)
   3. The command center app renders Dashboard, Config, and FlashSimulator pages without runtime errors
   4. The command center backend starts and all four routers (`auth`, `sip_trunks`, `calls`, `health`) return 200 on their respective GET endpoints
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: `Login.tsx` full MUI form + Redux auth dispatch
-- [ ] 07-02: `audioStreamService.ts` env-var WebSocket URL
-- [ ] 07-03: Command center frontend pages (Dashboard, Config, FlashSimulator)
-- [ ] 07-04: Command center backend routers (auth, sip_trunks, calls, health)
+- [x] 07-01-PLAN.md — Fix audioStreamService.ts WebSocket URL from env var (FE-02)
+- [x] 07-02-PLAN.md — Verify Login.tsx (FE-01) + command center frontend pages (FE-03)
+- [x] 07-03-PLAN.md — Verify command center backend routers (FE-04)
 
 ### Phase 8: Unit Tests
 **Goal**: Every previously zero-coverage module has meaningful unit tests, raising overall coverage to an acceptable baseline
-**Depends on**: Phase 7
+**Depends on**: Phase 6, Phase 7
 **Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, TEST-05, TEST-06, TEST-07, TEST-08
 **Success Criteria** (what must be TRUE):
   1. `pytest tests/test_auth.py` passes and covers the happy path, bad credentials, and expired token cases in `src/api/auth.py`
@@ -159,22 +158,22 @@ Plans:
 
 ### Phase 9: Integration & E2E Tests
 **Goal**: The full call flow runs against real test infrastructure, and EU data residency is verified end-to-end
-**Depends on**: Phase 8
+**Depends on**: Phase 5, Phase 6, Phase 8
 **Requirements**: TEST-09, TEST-10, TEST-11
 **Success Criteria** (what must be TRUE):
   1. Integration tests spin up a real `asyncpg` pool against a test PostgreSQL database and pass DB read/write assertions
   2. The E2E call flow test (`audio_file → STT → LLM → TTS → response_audio`) completes without mocks and produces non-empty audio bytes
   3. The compliance E2E test confirms that no data leaves the EU-resident endpoint (verified via `APIConfig.eu_data_residency = True` enforcement)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: Real DB fixtures with pytest-asyncio + asyncpg pool setup
-- [ ] 09-02: Full call flow E2E test (audio → STT → LLM → TTS)
-- [ ] 09-03: Compliance E2E test for EU data residency enforcement
+- [x] 09-01-PLAN.md — Real DB fixtures with pytest-asyncio + asyncpg pool setup (TEST-09)
+- [x] 09-02-PLAN.md — Full call flow E2E test (audio → STT → LLM → TTS) (TEST-10)
+- [x] 09-03-PLAN.md — Compliance E2E test for EU data residency enforcement (TEST-11)
 
 ### Phase 10: Production Readiness
 **Goal**: The platform is deployable to Kubernetes with sealed secrets, schema migrations, CI/CD, and full observability
-**Depends on**: Phase 9
+**Depends on**: Phase 5, Phase 6, Phase 9
 **Requirements**: PROD-01, PROD-02, PROD-03, PROD-04, PROD-05, PROD-06, PROD-07
 **Success Criteria** (what must be TRUE):
   1. `helm install --dry-run` succeeds with zero `changeme` values remaining in any secret manifest
@@ -200,15 +199,15 @@ Note: Phase 6 depends only on Phase 1 (billing/integrations are independent of t
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete   | 2026-03-17 |
-| 2. STT | 0/4 | Not started | - |
-| 3. LLM | 0/3 | Not started | - |
-| 4. TTS | 0/3 | Not started | - |
-| 5. Telephony | 0/3 | Not started | - |
-| 6. Billing & Integrations | 0/3 | Not started | - |
-| 7. Frontend & Command Center | 0/4 | Not started | - |
-| 8. Unit Tests | 0/3 | Not started | - |
-| 9. Integration & E2E Tests | 0/3 | Not started | - |
-| 10. Production Readiness | 0/4 | Not started | - |
+| 2. STT | 4/4 | Complete   | 2026-04-22 |
+| 3. LLM | 3/3 | Complete   | 2026-04-22 |
+| 4. TTS | 3/3 | Complete   | 2026-04-22 |
+| 5. Telephony | 3/3 | Complete   | 2026-04-22 |
+| 6. Billing & Integrations | 3/3 | Complete   | 2026-04-23 |
+| 7. Frontend & Command Center | 3/3 | Complete   | 2026-04-23 |
+| 8. Unit Tests | 3/3 | Complete | 2026-04-19 |
+| 9. Integration & E2E Tests | 3/3 | Complete   | 2026-04-23 |
+| 10. Production Readiness | 4/4 | Complete   | 2026-04-23 |
 
 ---
 *Roadmap created: 2026-03-16*

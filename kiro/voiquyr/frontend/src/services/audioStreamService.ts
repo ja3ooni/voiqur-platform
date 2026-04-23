@@ -22,7 +22,7 @@ export class AudioStreamService {
   private lastHeartbeat = 0;
 
   constructor(
-    private wsUrl: string = 'ws://localhost:8000/ws/audio',
+    private wsUrl: string = process.env.REACT_APP_WS_URL || 'ws://localhost:8000/ws/audio',
     private config: AudioStreamConfig = {
       sampleRate: 16000,
       channels: 1,

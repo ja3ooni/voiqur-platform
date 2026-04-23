@@ -214,6 +214,40 @@ class StripeService:
             currency=currency,
             status="succeeded"
         )
+
+    def verify_webhook_signature(
+        self,
+        payload: bytes,
+        signature: str,
+        endpoint_secret: str
+    ) -> bool:
+        """Verify Stripe webhook signature
+        
+        Args:
+            payload: Raw webhook request body
+            signature: Stripe-Signature header value
+            endpoint_secret: Webhook secret from Stripe dashboard
+            
+        Returns:
+            True if signature is valid
+        """
+        if not stripe:
+            self.logger.warning("stripe library not installed, cannot verify signature")
+            return False
+            
+        try:
+            event = stripe.Webhook.construct_event(
+                payload,
+                signature,
+                endpoint_secret
+            )
+            return True
+        except stripe.SignatureVerificationError:
+            self.logger.error("Webhook signature verification failed")
+            return False
+        except ValueError:
+            self.logger.error("Invalid webhook payload")
+            return False
         
     def _mock_process_refund(self, transaction_id: str, amount: Optional[Decimal]) -> bool:
         if transaction_id not in self._mock_payments:
