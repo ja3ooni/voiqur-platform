@@ -34,7 +34,6 @@ def _make_mock_pool(conn_return_value=1):
 # FOUND-01: .env vars loaded into APIConfig
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 Plan 01-01 wires load_dotenv() — not yet implemented")
 async def test_env_loading():
     """APIConfig reads values from .env file when load_dotenv() is called first."""
     from dotenv import load_dotenv
@@ -49,7 +48,6 @@ async def test_env_loading():
 # FOUND-02: .env.example exists with all required vars
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 Plan 01-01 creates .env.example — not yet implemented")
 def test_env_example_exists():
     """kiro/voiquyr/.env.example exists and documents all required environment variables."""
     env_example_path = os.path.join(os.path.dirname(__file__), "..", ".env.example")
