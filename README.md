@@ -22,10 +22,7 @@ voiqur-platform/
 │   ├── frontend/          # React 18 + MUI 5 dashboard
 │   └── voiquyr-command-center/  # Monitoring + flash simulator app
 ├── voiquyr/               # Business layer: client deployments, landing page
-│   ├── medgulf/           # MedGulf Insurance (Jordan) deployment
-│   ├── oman/              # Shape Digital / Oman LNG deployment
-│   ├── aqaba/             # InfraTechton consulting knowledge base
-│   └── voiquyr-landing/   # Cloudflare Workers landing page
+│   
 └── .planning/             # GSD project planning (roadmap, phases, research)
 ```
 
@@ -192,9 +189,7 @@ pytest --cov=src --cov-report=term-missing
 
 | Client | Directory | Description |
 |--------|-----------|-------------|
-| MedGulf Insurance | `voiquyr/medgulf/` | Jordan pilot — see `medgulf/CLAUDE.md` |
-| Oman LNG | `voiquyr/oman/` | Shape Digital — see `oman/CLAUDE.md` |
-| Aqaba | `voiquyr/aqaba/` | InfraTechton consulting knowledge base |
+
 
 ---
 
