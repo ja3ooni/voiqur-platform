@@ -19,6 +19,7 @@ import redis.asyncio as aioredis
 from .auth import AuthManager
 from .rate_limiter import RateLimiter
 from .routers import voice_processing, webhooks, health, integrations
+from .routers import vllm as vllm_router
 from .middleware import SecurityMiddleware, LoggingMiddleware
 from .config import APIConfig
 from .services.webhook_service import WebhookService
@@ -153,6 +154,12 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
         tags=["Auth"]
     )
 
+    app.include_router(
+        vllm_router.router,
+        prefix="/v1",
+        tags=["Self-Hosted vLLM"]
+    )
+
     @app.get("/")
     async def root():
         """Root endpoint — redirect to docs."""
@@ -225,13 +232,17 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
 
         # Initialize shared connection pools
         try:
+            pool_config = config.db_pool_config
             app.state.db_pool = await asyncpg.create_pool(
                 dsn=config.database_url,
-                min_size=2,
-                max_size=10,
-                command_timeout=30,
+                min_size=pool_config.min_size,
+                max_size=pool_config.max_size,
+                command_timeout=pool_config.command_timeout,
+                connect_timeout=pool_config.connect_timeout,
+                max_queries=pool_config.max_queries,
+                max_inactive_conn_lifetime=pool_config.max_inactive_conn_lifetime,
             )
-            logger.info("PostgreSQL pool initialized")
+            logger.info(f"PostgreSQL pool initialized (min={pool_config.min_size}, max={pool_config.max_size})")
         except Exception as e:
             logger.error(f"Failed to create PostgreSQL pool: {e}")
             app.state.db_pool = None

@@ -96,6 +96,17 @@ class SecurityConfig(BaseModel):
     )
 
 
+class DatabasePoolConfig(BaseModel):
+    """Database connection pool configuration."""
+
+    min_size: int = 5
+    max_size: int = 20
+    command_timeout: int = 60
+    connect_timeout: int = 10
+    max_queries: int = 50000
+    max_inactive_conn_lifetime: int = 300
+
+
 class APIConfig(BaseModel):
     """Main API configuration."""
     
@@ -135,6 +146,9 @@ class APIConfig(BaseModel):
     rate_limit_config: RateLimitConfig = Field(default_factory=RateLimitConfig)
     security_config: SecurityConfig = Field(default_factory=SecurityConfig)
     
+    # Database pool configuration
+    db_pool_config: DatabasePoolConfig = Field(default_factory=DatabasePoolConfig)
+    
     # Webhook configuration
     max_concurrent_webhooks: int = Field(
         default_factory=lambda: int(os.getenv("MAX_CONCURRENT_WEBHOOKS", "100"))
@@ -149,6 +163,20 @@ class APIConfig(BaseModel):
         default_factory=lambda: int(os.getenv("WEBHOOK_CLEANUP_DAYS", "30"))
     )
     
+    # vLLM self-hosted inference
+    vllm_url: str = Field(
+        default_factory=lambda: os.getenv("VLLM_URL", "http://localhost:8001")
+    )
+    vllm_model: str = Field(
+        default_factory=lambda: os.getenv("VLLM_MODEL", "mistral-7b")
+    )
+    vllm_enabled: bool = Field(
+        default_factory=lambda: os.getenv("VLLM_ENABLED", "false").lower() == "true"
+    )
+    vllm_timeout: int = Field(
+        default_factory=lambda: int(os.getenv("VLLM_TIMEOUT", "120"))
+    )
+
     # EU compliance
     eu_data_residency: bool = True
     gdpr_mode: bool = True
