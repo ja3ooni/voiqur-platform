@@ -1,0 +1,40 @@
+# vLLM Server Configuration
+# Override values with environment variables in docker-compose.yml
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  uvicorn_log_level: "info"
+
+model:
+  # Mistral 7B Instruct — default self-hosted model
+  name: "mistralai/Mistral-7B-Instruct-v0.3"
+  # Served model name — used in OpenAI-compatible API requests
+  served_name: "mistral-7b"
+  # Maximum sequence length (prompt + completion)
+  max_model_len: 32768
+  # Context window for prompt
+  max_num_seqs: 256
+
+gpu:
+  # Fraction of GPU memory to reserve for model weights
+  # 0.90 leaves ~10% for KV-cache overhead
+  memory_utilization: 0.90
+  # Number of GPUs for tensor parallelism (>=2 for multi-GPU)
+  tensor_parallel_size: 1
+  # Data type: bfloat16 (A100/H100) or float16 (older GPUs)
+  dtype: "bfloat16"
+
+performance:
+  # Maximum batch size for continuous batching
+  max_batch_size: 256
+  # Scheduler policy: fcfs (first-come-first-serve)
+  scheduler_policy: "fcfs"
+
+health:
+  # Health endpoint timeout (seconds)
+  timeout_seconds: 10
+
+logging:
+  level: "INFO"
+  format: "json"

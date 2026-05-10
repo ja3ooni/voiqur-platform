@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  vllm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voiquyr-vllm:latest
+    container_name: voiquyr-vllm
+    ports:
+      - "8001:8000"
+    environment:
+      MODEL_NAME: ${VLLM_MODEL_NAME:-mistralai/Mistral-7B-Instruct-v0.3}
+      MAX_MODEL_LEN: ${VLLM_MAX_MODEL_LEN:-32768}
+      GPU_MEMORY_UTILIZATION: ${VLLM_GPU_MEMORY_UTILIZATION:-0.90}
+      TENSOR_PARALLEL_SIZE: ${VLLM_TENSOR_PARALLEL_SIZE:-1}
+      DTYPE: ${VLLM_DTYPE:-bfloat16}
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+      - vllm_logs:/var/log/vllm
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  huggingface_cache:
+    driver: local
+  vllm_logs:
+    driver: local
