@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
+from src.core.metrics import get_metrics
+
 logger = logging.getLogger(__name__)
 
 
@@ -143,6 +145,7 @@ class FallbackOrchestrator:
             elapsed = time.time() - self._circuit_opened_at
             if elapsed > self.config.circuit_open_timeout:
                 self._circuit_state = CircuitState.HALF_OPEN
+                get_metrics().voiquyr_circuit_breaker_state.set(2)
                 logger.info("Circuit half-open, testing providers...")
                 return True
             return False
@@ -159,6 +162,7 @@ class FallbackOrchestrator:
 
         if self._circuit_state == CircuitState.HALF_OPEN:
             self._circuit_state = CircuitState.CLOSED
+            get_metrics().voiquyr_circuit_breaker_state.set(0)
             logger.info("Circuit closed, recovery successful")
 
     def _record_failure(self, provider: ModelProvider) -> None:
@@ -174,6 +178,8 @@ class FallbackOrchestrator:
         """Open the circuit breaker."""
         if self._circuit_state != CircuitState.OPEN:
             self._circuit_state = CircuitState.OPEN
+            get_metrics().voiquyr_circuit_breaker_state.set(1)
+            get_metrics().voiquyr_fallback_activations_total.labels(provider="all").inc()
             self._circuit_opened_at = time.time()
             logger.warning("Circuit opened — all providers blocked")
 

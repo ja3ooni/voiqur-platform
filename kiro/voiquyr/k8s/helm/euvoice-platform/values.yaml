@@ -234,6 +234,7 @@ ingress:
 
 # ── Monitoring ────────────────────────────────────────────────────────────────
 monitoring:
+  enabled: true
   prometheus:
     enabled: true
     retention: "30d"
@@ -244,8 +245,27 @@ monitoring:
     persistence:
       enabled: true
       size: "5Gi"
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
   jaeger:
     enabled: false
+  serviceMonitor:
+    interval: "30s"
+    scrapeTimeout: "10s"
+    # Must match the label selector on the API service
+    selector:
+      matchLabels:
+        app.kubernetes.io/component: api
+  alertmanager:
+    # Set to your Slack webhook URL via --set or a sealed secret
+    slackWebhookUrl: ""
+    channel: "#voiquyr-alerts"
+    groupWait: "30s"
+    groupInterval: "5m"
+    repeatInterval: "1h"
 
 # ── Security ──────────────────────────────────────────────────────────────────
 security:

@@ -65,5 +65,16 @@ Real-time, EU-resident voice AI that connects a phone call or WebSocket stream t
 | asyncpg + aioredis for DB | Async-native, matches FastAPI event loop | ✅ Implemented |
 | 10-phase fine-grained plan | Keeps per-phase context small, avoids token blowout | ✅ Validated |
 
+## Current Milestone: v1.1 Optimization
+
+**Goal:** Performance optimization, self-hosted model options, enhanced compliance features
+
+**Target features:**
+- Performance optimization and caching improvements
+- Self-hosted STT options (Voxtral when released)
+- Self-hosted LLM via vLLM for cost control
+- Enhanced monitoring and alerting
+- Multi-region EU deployment architecture
+
 ---
 *Last updated: 2026-04-23 after v1.0 milestone*

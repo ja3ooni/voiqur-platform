@@ -1,0 +1,148 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-api
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout | quote }}
+{{- end }}
+---
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-pipeline
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  groups:
+    - name: voiquyr.pipeline
+      rules:
+        - alert: VoiquyrLatencyWarning
+          expr: histogram_quantile(0.95, sum(rate(voiquyr_call_latency_ms_bucket[5m])) by (le)) > 500
+          for: 2m
+          labels:
+            severity: warning
+            team: voiquyr
+          annotations:
+            summary: Voiquyr p95 latency warning
+            description: Pipeline p95 call latency exceeded 500ms for 2 minutes.
+        - alert: VoiquyrLatencyCritical
+          expr: histogram_quantile(0.95, sum(rate(voiquyr_call_latency_ms_bucket[5m])) by (le)) > 800
+          for: 1m
+          labels:
+            severity: critical
+            team: voiquyr
+          annotations:
+            summary: Voiquyr p95 latency critical
+            description: Pipeline p95 call latency exceeded 800ms for 1 minute.
+        - alert: VoiquyrCircuitBreakerOpen
+          expr: voiquyr_circuit_breaker_state == 1
+          labels:
+            severity: critical
+            team: voiquyr
+          annotations:
+            summary: Voiquyr circuit breaker open
+            description: The LLM fallback chain circuit breaker is open.
+        - alert: VoiquyrHighErrorRate
+          expr: sum(rate(voiquyr_stt_latency_ms_count{status="error"}[5m])) / sum(rate(voiquyr_stt_latency_ms_count[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            team: voiquyr
+          annotations:
+            summary: Voiquyr high STT error rate
+            description: STT error rate exceeded 5 percent over 5 minutes.
+{{- end }}
+---
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-alertmanager-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+data:
+  alertmanager.yaml: |
+    global:
+      slack_api_url: "{{ .Values.monitoring.alertmanager.slackWebhookUrl }}"
+    route:
+      receiver: slack-voiquyr
+      group_by: [alertname, severity]
+      group_wait: {{ .Values.monitoring.alertmanager.groupWait }}
+      group_interval: {{ .Values.monitoring.alertmanager.groupInterval }}
+      repeat_interval: {{ .Values.monitoring.alertmanager.repeatInterval }}
+    receivers:
+      - name: slack-voiquyr
+        slack_configs:
+          - channel: "{{ .Values.monitoring.alertmanager.channel }}"
+            title: "[{{`{{ .CommonLabels.severity | upper }}`}}] {{`{{ .CommonLabels.alertname }}`}}"
+            text: "{{`{{ range .Alerts }}{{ .Annotations.description }}{{ end }}`}}"
+{{- end }}
+---
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-dashboard-pipeline-sla
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    {{ .Values.monitoring.grafana.sidecar.dashboards.label }}: "{{ .Values.monitoring.grafana.sidecar.dashboards.labelValue }}"
+data:
+  voiquyr-pipeline-sla.json: |
+    {
+      "title": "Voiquyr Pipeline SLA",
+      "schemaVersion": 39,
+      "refresh": "30s",
+      "time": {"from": "now-1h", "to": "now"},
+      "panels": [
+        {"type": "stat", "title": "Call latency p50", "targets": [{"expr": "histogram_quantile(0.50, sum(rate(voiquyr_call_latency_ms_bucket[5m])) by (le))"}]},
+        {"type": "stat", "title": "Call latency p95", "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color": "green", "value": null}, {"color": "red", "value": 500}]}}}, "targets": [{"expr": "histogram_quantile(0.95, sum(rate(voiquyr_call_latency_ms_bucket[5m])) by (le))"}]},
+        {"type": "stat", "title": "Call latency p99", "targets": [{"expr": "histogram_quantile(0.99, sum(rate(voiquyr_call_latency_ms_bucket[5m])) by (le))"}]},
+        {"type": "timeseries", "title": "Per-stage p95 latency", "targets": [{"expr": "histogram_quantile(0.95, sum(rate(voiquyr_stt_latency_ms_bucket[5m])) by (le))", "legendFormat": "stt"}, {"expr": "histogram_quantile(0.95, sum(rate(voiquyr_llm_latency_ms_bucket[5m])) by (le))", "legendFormat": "llm"}, {"expr": "histogram_quantile(0.95, sum(rate(voiquyr_tts_latency_ms_bucket[5m])) by (le))", "legendFormat": "tts"}]},
+        {"type": "stat", "title": "Flash mode hit rate", "targets": [{"expr": "rate(voiquyr_flash_mode_hits_total[5m]) / (rate(voiquyr_flash_mode_hits_total[5m]) + rate(voiquyr_flash_mode_misses_total[5m]))"}]},
+        {"type": "timeseries", "title": "Call error rate", "targets": [{"expr": "rate(voiquyr_call_latency_ms_count{status=\"error\"}[5m])"}]}
+      ]
+    }
+{{- end }}
+---
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "euvoice-platform.fullname" . }}-dashboard-fallback-health
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "euvoice-platform.labels" . | nindent 4 }}
+    {{ .Values.monitoring.grafana.sidecar.dashboards.label }}: "{{ .Values.monitoring.grafana.sidecar.dashboards.labelValue }}"
+data:
+  voiquyr-fallback-health.json: |
+    {
+      "title": "Voiquyr Fallback & Health",
+      "schemaVersion": 39,
+      "refresh": "30s",
+      "time": {"from": "now-1h", "to": "now"},
+      "panels": [
+        {"type": "stat", "title": "Circuit breaker state", "fieldConfig": {"defaults": {"thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 2}, {"color": "red", "value": 1}]}}}, "targets": [{"expr": "voiquyr_circuit_breaker_state"}]},
+        {"type": "timeseries", "title": "Fallback activation rate", "targets": [{"expr": "rate(voiquyr_fallback_activations_total[5m])"}]},
+        {"type": "timeseries", "title": "vLLM vs Mistral usage", "targets": [{"expr": "rate(voiquyr_fallback_activations_total{provider=\"vllm\"}[5m])", "legendFormat": "vLLM"}, {"expr": "rate(voiquyr_fallback_activations_total{provider=\"mistral_api\"}[5m])", "legendFormat": "Mistral API"}]},
+        {"type": "timeseries", "title": "Per-stage error rates", "targets": [{"expr": "rate(voiquyr_stt_latency_ms_count{status=\"error\"}[5m])", "legendFormat": "stt"}, {"expr": "rate(voiquyr_llm_latency_ms_count{status=\"error\"}[5m])", "legendFormat": "llm"}, {"expr": "rate(voiquyr_tts_latency_ms_count{status=\"error\"}[5m])", "legendFormat": "tts"}]}
+      ]
+    }
+{{- end }}

@@ -12,6 +12,8 @@ from enum import Enum
 import hashlib
 import logging
 
+from .metrics import get_metrics
+
 logger = logging.getLogger(__name__)
 
 
@@ -137,6 +139,7 @@ class FlashMode:
             # HIT: Reuse speculative result
             state.status = SpeculativeStatus.HIT
             self.hit_count += 1
+            get_metrics().voiquyr_flash_mode_hits_total.inc()
             
             # Calculate TTFT reduction
             if state.completed_at:
@@ -157,8 +160,9 @@ class FlashMode:
             )
         else:
             # MISS: Discard speculative result and run fresh inference
-            state.status = SpeculativeStatus.DISCARDED
+            state.status = SpeculativeStatus.MISS
             self.miss_count += 1
+            get_metrics().voiquyr_flash_mode_misses_total.inc()
             
             logger.info(f"Speculative MISS for call {call_id}")
             

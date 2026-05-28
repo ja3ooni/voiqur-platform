@@ -26,6 +26,7 @@ from datetime import datetime
 
 from ..core.models import AgentMessage, AgentState, Task, AgentCapability, Priority
 from ..core.messaging import MessageBus
+from ..core.metrics import get_metrics
 
 
 class TTSModelType(Enum):
@@ -1795,6 +1796,7 @@ class TTSAgent:
         streaming: bool = False,
     ) -> Union[SynthesisResult, AsyncGenerator[bytes, None]]:
         """Synthesize text to speech"""
+        start = time.monotonic()
         try:
             self.state.status = "processing"
             start_time = time.time()
@@ -1819,6 +1821,8 @@ class TTSAgent:
 
             # Update performance metrics
             self._update_synthesis_metrics(result, time.time() - start_time)
+            latency_ms = (time.monotonic() - start) * 1000
+            get_metrics().voiquyr_tts_latency_ms.labels(status="ok").observe(latency_ms)
 
             if streaming:
                 # Return streaming generator
@@ -1829,6 +1833,8 @@ class TTSAgent:
                 return result
 
         except Exception as e:
+            latency_ms = (time.monotonic() - start) * 1000
+            get_metrics().voiquyr_tts_latency_ms.labels(status="error").observe(latency_ms)
             self.logger.error(f"Text synthesis failed: {e}")
             self.state.status = "error"
             raise

@@ -21,6 +21,7 @@ import numpy as np
 
 from ..core.models import AgentMessage, AgentState, Task, AgentCapability
 from ..core.messaging import MessageBus
+from ..core.metrics import get_metrics
 from .dialog_manager import DialogManager, ConversationSession, DialogTurn, TurnType
 from .tool_integration import (
     ToolRegistry,
@@ -248,11 +249,15 @@ class MistralModelManager:
         if not self.current_model and not self._mistral_api_key:
             raise RuntimeError("No model loaded and no MISTRAL_API_KEY")
 
+        start = time.monotonic()
         try:
             # Try Cloud API first if key available
             if self._mistral_api_key and not self._using_cloud:
                 try:
-                    return await self._generate_cloud_response(context, system_prompt, tools)
+                    response = await self._generate_cloud_response(context, system_prompt, tools)
+                    latency_ms = (time.monotonic() - start) * 1000
+                    get_metrics().voiquyr_llm_latency_ms.labels(status="ok").observe(latency_ms)
+                    return response
                 except Exception as e:
                     self.logger.warning(f"Cloud API failed ({e}), trying local model")
 
@@ -269,7 +274,10 @@ class MistralModelManager:
                 isinstance(self.current_model, dict)
                 and self.current_model.get("type") == "mock"
             ):
-                return await self._generate_mock_response(messages, tools)
+                response = await self._generate_mock_response(messages, tools)
+                latency_ms = (time.monotonic() - start) * 1000
+                get_metrics().voiquyr_llm_latency_ms.labels(status="ok").observe(latency_ms)
+                return response
 
             # Real model inference
             if self.tokenizer:
@@ -302,11 +310,18 @@ class MistralModelManager:
                     outputs[0][inputs.input_ids.shape[1] :], skip_special_tokens=True
                 )
 
-                return response.strip()
+                response_text = response.strip()
+                latency_ms = (time.monotonic() - start) * 1000
+                get_metrics().voiquyr_llm_latency_ms.labels(status="ok").observe(latency_ms)
+                return response_text
 
+            latency_ms = (time.monotonic() - start) * 1000
+            get_metrics().voiquyr_llm_latency_ms.labels(status="ok").observe(latency_ms)
             return "Model inference not available"
 
         except Exception as e:
+            latency_ms = (time.monotonic() - start) * 1000
+            get_metrics().voiquyr_llm_latency_ms.labels(status="error").observe(latency_ms)
             self.logger.error(f"Response generation failed: {e}")
             return f"I apologize, but I encountered an error while processing your request: {str(e)}"
 

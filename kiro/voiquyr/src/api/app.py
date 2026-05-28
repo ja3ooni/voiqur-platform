@@ -10,6 +10,39 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBearer
 from fastapi.openapi.utils import get_openapi
+from prometheus_client import generate_latest
+from starlette.responses import Response
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator as _RealInstrumentator
+except ModuleNotFoundError:  # pragma: no cover - exercised only in stale envs
+    _RealInstrumentator = None
+
+
+class Instrumentator:
+    """Instrument FastAPI and expose canonical Prometheus text output."""
+
+    def __init__(self) -> None:
+        self._real = _RealInstrumentator() if _RealInstrumentator else None
+
+    def instrument(self, app: FastAPI) -> "Instrumentator":
+        if self._real:
+            self._real.instrument(app)
+        return self
+
+    def expose(
+        self,
+        app: FastAPI,
+        endpoint: str = "/metrics",
+        include_in_schema: bool = False,
+    ) -> "Instrumentator":
+        @app.get(endpoint, include_in_schema=include_in_schema)
+        async def metrics() -> Response:
+            return Response(
+                generate_latest(),
+                headers={"Content-Type": "text/plain; version=0.0.4; charset=utf-8"},
+            )
+
+        return self
 import time
 import logging
 from typing import Optional
@@ -92,13 +125,16 @@ def create_app(config: Optional[APIConfig] = None) -> FastAPI:
             TrustedHostMiddleware,
             allowed_hosts=config.trusted_hosts
         )
+
+    # Prometheus metrics - cluster-internal /metrics endpoint
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
     
     # Add rate limiting middleware
     @app.middleware("http")
     async def rate_limit_middleware(request: Request, call_next):
         """Apply rate limiting to all requests."""
         # Skip rate limiting for OPTIONS (CORS preflight)
-        if request.method == "OPTIONS":
+        if request.method == "OPTIONS" or request.url.path == "/metrics":
             return await call_next(request)
         
         client_ip = request.client.host

@@ -26,6 +26,7 @@ from pathlib import Path
 
 from ..core.models import AgentMessage, AgentState, Task
 from ..core.messaging import MessageBus
+from ..core.metrics import get_metrics
 
 from langdetect import detect as langdetect_detect, DetectorFactory
 DetectorFactory.seed = 0
@@ -255,6 +256,7 @@ class VoxtralModelManager:
         if not self.current_model:
             raise RuntimeError("No model loaded")
 
+        start = time.monotonic()
         try:
             audio_bytes = self._chunk_to_wav_bytes(audio_chunk)
 
@@ -269,7 +271,7 @@ class VoxtralModelManager:
             else:
                 raise RuntimeError("No STT API key available (set DEEPGRAM_API_KEY or MISTRAL_API_KEY)")
 
-            return TranscriptionResult(
+            result = TranscriptionResult(
                 text=text,
                 confidence=0.95,
                 language="",  # LanguageDetector fills this post-transcription
@@ -278,8 +280,13 @@ class VoxtralModelManager:
                 is_partial=False,
                 chunk_id=audio_chunk.chunk_id
             )
+            latency_ms = (time.monotonic() - start) * 1000
+            get_metrics().voiquyr_stt_latency_ms.labels(status="ok").observe(latency_ms)
+            return result
 
         except Exception as e:
+            latency_ms = (time.monotonic() - start) * 1000
+            get_metrics().voiquyr_stt_latency_ms.labels(status="error").observe(latency_ms)
             self.logger.error(f"Transcription failed: {e}")
             raise
 
