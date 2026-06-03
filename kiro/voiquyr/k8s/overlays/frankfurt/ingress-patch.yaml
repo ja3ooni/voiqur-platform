@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: euvoice
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "api.voiquyr.eu,app.voiquyr.eu,command.voiquyr.eu"
+    external-dns.alpha.kubernetes.io/aws-geolocation-continent-code: "EU"
+    external-dns.alpha.kubernetes.io/aws-set-identifier: "frankfurt"
+    external-dns.alpha.kubernetes.io/aws-weight: "100"
+    external-dns.alpha.kubernetes.io/ttl: "60"

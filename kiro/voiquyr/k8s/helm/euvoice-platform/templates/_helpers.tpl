@@ -151,7 +151,7 @@ affinity:
           operator: In
           values:
           - {{ .Values.global.region }}
-        - key: compliance.euvoice.ai/eu-node
+        - key: {{ .Values.global.nodeComplianceLabel | default "compliance.euvoice.ai/eu-node" }}
           operator: In
           values:
           - "true"

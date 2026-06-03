@@ -1,0 +1,39 @@
+global:
+  region: "eu-central-1"
+  dataResidency: "eu"
+  gdprCompliance: true
+  aiActCompliance: true
+  storageClass: "gp3-encrypted"
+  nodeComplianceLabel: "compliance.euvoice.ai/eu-node"
+namespace:
+  name: "voiquyr"
+  labels:
+    compliance: "gdpr"
+    region: "eu"
+    "pod-security.kubernetes.io/enforce": "restricted"
+  annotations:
+    "compliance.euvoice.ai/gdpr": "enabled"
+    "compliance.euvoice.ai/ai-act": "enabled"
+    "compliance.euvoice.ai/region": "frankfurt"
+ingress:
+  hosts:
+    - host: api.voiquyr.eu
+      paths:
+        - { path: /, pathType: Prefix, service: api }
+    - host: app.voiquyr.eu
+      paths:
+        - { path: /, pathType: Prefix, service: dashboard }
+    - host: command.voiquyr.eu
+      paths:
+        - { path: /api, pathType: Prefix, service: commandCenterApi }
+        - { path: /, pathType: Prefix, service: commandCenterUi }
+  tls:
+    - secretName: voiquyr-tls-eu
+      hosts: [api.voiquyr.eu, app.voiquyr.eu, command.voiquyr.eu]
+monitoring:
+  alertmanager:
+    channel: "#voiquyr-alerts-eu"
+api:
+  env:
+    REGION_ID: "frankfurt"
+    DATA_RESIDENCY: "eu"

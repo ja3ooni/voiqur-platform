@@ -13,6 +13,7 @@ global:
   dataResidency: "eu"
   gdprCompliance: true
   aiActCompliance: true
+  nodeComplianceLabel: "compliance.euvoice.ai/eu-node"
 
   # Set to your registry, e.g. "ghcr.io/your-org" or "registry.eu-central-1.amazonaws.com"
   imageRegistry: ""
