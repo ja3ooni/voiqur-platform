@@ -4,6 +4,8 @@
 
 **Core pipeline:** Phone call / WebSocket → STT → LLM → TTS → Audio response
 
+Built by [Abdullah Al-Jauni](https://infratechton.com/) — AI consultant and infrastructure strategist based in Frankfurt, Germany.
+
 ---
 
 ## Repository Structure
