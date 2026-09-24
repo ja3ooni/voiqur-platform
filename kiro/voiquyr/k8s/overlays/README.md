@@ -12,6 +12,13 @@ overlays/
 │   ├── ingress-patch.yaml            # ExternalDNS Route53 geolocation annotations
 │   ├── namespace-patch.yaml          # Pod Security Admission + compliance labels
 │   └── externaldns-deployment.yaml   # Region-local ExternalDNS controller (eu-central-1)
+├── uae/                   # Middle East/UAE sovereign region overlay
+│   ├── kustomization.yaml
+│   ├── values-uae.yaml               # UAE-specific Helm value overrides
+│   ├── storageclass-uae.yaml         # UAE specific encrypted gp3 storage class
+│   ├── ingress-patch.yaml            # ExternalDNS Route53 geolocation annotations for AE
+│   ├── namespace-patch.yaml          # Pod Security Admission + uae-pdpl compliance labels
+│   └── externaldns-deployment.yaml   # Region-local ExternalDNS controller (me-central-1)
 └── README.md              # This file
 ```
 
